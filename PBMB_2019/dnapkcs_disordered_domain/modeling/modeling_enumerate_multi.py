@@ -1,3 +1,4 @@
+from __future__ import print_function
 import IMP
 import numpy
 import IMP.pmi.tools
@@ -7,6 +8,7 @@ import IMP.threading
 import IMP.pmi.samplers
 import json
 import sys
+
 
 # These arguments facilitate the multi-threading of enumeration runs
 # They divide the total list of models into n_per_thread chunks and assigns
@@ -172,7 +174,11 @@ def setup_structural_element(root_hier, element, max_translation=1):
                 residue_indexes=range(element[0],element[0]+element[1]),
                 atom_type=IMP.atom.AT_CA).get_selected_particles()
 
-    # Get XYZs from particles grabbed above
+    # Create new particle for this SE and set up as a Hierarchy
+    pi = IMP.Particle(root_hier.get_model())
+    h = IMP.atom.Hierarchy.setup_particle(pi)
+
+    # Get XYZs from particles grabbed above and add to SE Hierarchy
     xyz = []
     i = 0
     for p in pis:
@@ -183,10 +189,6 @@ def setup_structural_element(root_hier, element, max_translation=1):
         xyz.set_radius(1.0)
         IMP.atom.Mass.setup_particle(np, 1.0)
         h.add_child(hp)
-    
-    # Create new particle for this SE and set up as a Hierarchy
-    pi = IMP.Particle(root_hier.get_model())
-    h = IMP.atom.Hierarchy.setup_particle(pi)
     
     # Set up StructureElement
     IMP.threading.StructureElement.setup_particle(root_hier.get_model(), pi.get_index(), element[0], 1, element[1], 0)
@@ -301,8 +303,8 @@ xl_8 = [(2746,357,27),(2738,2001,27),(2717,2107,27),(2738,2227,27),(2746,2313,27
 
 # Data files
 #--------------------------
-pdbfile = "./5luq_A_CA.pdb"
-psipred_file = "./data/psipred_dnapkcs.txt"
+pdbfile = "../data/5luq_A_CA.pdb"
+psipred_file = "../data/psipred_dnapkcs.txt"
 
 # Define Structural Elements
 # These are the residues in the PDB that correspond to structural elements.
@@ -332,6 +334,8 @@ disordered_range=(2577,2772)
 
 m = IMP.Model()
 
+print("Building Structure Chain and StructureElements")
+
 ###
 # Set up Structure chain A from PDB file
 # ------------------
@@ -353,6 +357,8 @@ for t in terminal_residues:
 # Set up Sequence chain S from seq
 # ---------------
 
+print("Building Sequence Chain for", len(seq), "residues")
+
 seq_chain = IMP.atom.Chain.setup_particle(IMP.Particle(m), "S")
 root_hier.add_child(seq_chain)
 
@@ -360,6 +366,7 @@ res_particles = []
 
 # Add a residue for all residues in the input sequence
 for i in range(len(seq)):
+
     pr = IMP.Particle(m)
     res = IMP.atom.Residue.setup_particle(pr,
                                         IMP.pmi.tools.get_residue_type_from_one_letter_code(seq[i]),
@@ -396,7 +403,6 @@ xl_sites = []
 for xl in xl_22 + xl_12 + xl_8:
     p = IMP.atom.Selection(root_hier, residue_index=xl[1]).get_selected_particles()
     if len(p) > 0:
-        print IMP.core.XYZ(p[0])
         xl_sites.append(xl)
 
     # TODO: Add warning/exception for too many/no particles in selection
@@ -413,7 +419,7 @@ for xl in xl_sites:
 
     r1 = IMP.atom.Residue(m, pis[0])
     r2 = IMP.atom.Residue(m, pis[1])
-    print "XL Setup between residues: ", xl[0], xl[1], " at a length of ", xl[2], "|", r1, r2
+    print("XL Setup between residues: ", xl[0], xl[1], " at a length of ", xl[2], "|", r1, r2)
     #print r.evaluate(False)
     rests.append(r)
     xlr.append(r)
@@ -514,11 +520,11 @@ def run_one_sim(mc, n_equil_frames, n_prod_frames):
     for f in range(n_prod_frames):
         mc.optimize(10)
 
-print("Total Score on initialization:", sf.evaluate(False), [(r.get_name(), r.evaluate(False)) for r in rests]
+print("Total Score on initialization:", sf.evaluate(False), [(r.get_name(), r.evaluate(False)) for r in rests])
 
 all_output=[]
 
-def enumerate_start_resis_3(seq_bounds, se_lengths, force=False):
+def enumerate_start_resis_3(seq_bounds, se_lengths):
     # Given the lengths of three SEs and the residue bounds, enumerate the potential start residues sets for each
     # without overlaps.  The order of the SEs is not changed.
 
@@ -526,11 +532,6 @@ def enumerate_start_resis_3(seq_bounds, se_lengths, force=False):
     # TODO: Make general for N StructureElements
 
     import itertools
-
-    if se_lengths > 5 and force is True:
-        print "Are you sure you want to enumerate this many SEs?"
-        print "If so, set force=True"
-        exit()
 
     seq_len = seq_bounds[1] - seq_bounds[0]
 
@@ -550,7 +551,7 @@ def enumerate_start_resis_3_all(seq_bounds, se_lengths, force=False):
     # Given three SE's, enumerate the potential start residues.
     # Permute the order of the SEs 
 
-    print "Setting up enumeration for", len(se_lengths), "SEs", "from residues", seq_bounds[0], "to", seq_bounds[1]
+    print("Setting up enumeration for", len(se_lengths), "SEs", "from residues", seq_bounds[0], "to", seq_bounds[1])
     
     if len(se_lengths)!=3:
         raise Exception("Must have only three SEs to enumerate with enumerate_start_residue_3_all().", len(se_lengths), "were passed")
@@ -603,15 +604,17 @@ def enumerate_start_resis_3_eval(start_resis, ses, sems, sf, f):
     Given a set of models (start_resis), evaluate each of these models
     on the set of StructureElements (ses) with associated StructureElementMovers (sems)
     using scoring function (sf) 
+    '''
+    
     out_dict={}
     out_dict['models'] = []
-    '''
+
     # TODO: Change to simply adding Chain A and grab the SEs and SEMs from that rather than passing them
 
     if len(ses) != len(start_resis[0]):
-        raise Exception("Different number of StructureElements,", len(ses),"and model values," len(start_resis[0]))
+        raise Exception("Different number of StructureElements,", len(ses),"and model values,", len(start_resis[0]))
     if len(ses) != len(sems):
-        raise Exception("Different number of StructureElements,", len(ses),"and StructureElementMovers," len(sems))
+        raise Exception("Different number of StructureElements,", len(ses),"and StructureElementMovers,", len(sems))
 
     for i in range(len(start_resis)):
         # Apply start residues to each SE
@@ -638,13 +641,17 @@ def enumerate_start_resis_3_eval(start_resis, ses, sems, sf, f):
 
         # Print every 100th step just to know that we're actually moving forward
         if i%100==0: 
-            print str(i)+"th step", tscore #sf.evaluate(False), start_resis[i]
+            print(str(i)+"th step", tscore) #sf.evaluate(False), start_resis[i]
     return out_dict 
 
 
 # Define Sampling Space
 # ------------------
 # Enumerate the possible start_residue sets within the disordered_range
+
+se_lengths = [e[1] for e in elements]
+
+print("SE:", se_lengths)
 
 # Re-order list of SE lengths
 our_se_lengths = [se_lengths[this_perm[0]], se_lengths[this_perm[1]], se_lengths[this_perm[2]]]
@@ -659,6 +666,7 @@ first = n_thread * n_per_thread
 last = first + n_per_thread
 srs_for_us = srs[first:last]
 
+new_srs = []
 for s in srs_for_us:
    new_srs.append((s[this_perm.index(0)], s[this_perm.index(1)],s[this_perm.index(2)]))
 
