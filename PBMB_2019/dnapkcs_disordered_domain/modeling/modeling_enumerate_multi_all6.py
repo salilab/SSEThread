@@ -56,6 +56,80 @@ hs_std = [0, 0.067, 0.278, 0.361, 0.418, 0.45, 0.448, 0.455, 0.436, 0.452, 0.438
 
 
 
+def coolate_output(se, sf):
+    outlist = [[s.get_all_key_values() for s in se], sf.evaluate(False)]
+    return outlist
+
+def run_one_sim(mc, n_equil_frames, n_prod_frames):
+    mc.set_return_best(False)
+    for f in range(n_equil_frames):
+        mc.optimize(1)
+    mc.set_return_best(True)
+    for f in range(n_prod_frames):
+        mc.optimize(10)
+
+
+
+def enumerate_start_resis_3(seq_bounds, se_lengths, force=False):
+    # Given three SE's, enumerate the potential start residues
+    import itertools
+
+    if se_lengths > 5 and force is True:
+        print "Are you sure you want to enumerate this many SEs?"
+        print "If so, set force=True"
+        exit()
+
+    seq_len = seq_bounds[1] - seq_bounds[0]
+
+    print "Setting up enumeration for", len(se_lengths), "SEs", "from residues", seq_bounds[0], "to", seq_bounds[1]
+
+    all_se_perms = list(itertools.permutations(se_lengths, len(se_lengths)))
+
+    start_resis = []
+
+    for i in range(seq_bounds[0], seq_bounds[1] + 1 -se_lengths[0]-se_lengths[1]-se_lengths[2]-6):
+        for j in range(se_lengths[0]+i+2, seq_bounds[1]+1-se_lengths[1]-se_lengths[2]-4):
+            for k in range(se_lengths[1]+j+2, seq_bounds[1]+1-se_lengths[2]-2):
+                start_resis.append((i,j,k))
+
+
+    return start_resis
+
+def enumerate_start_resis_3_eval(start_resis, ses, sems, sf, f):
+
+    out_dict={}
+    out_dict['models'] = []
+
+    print "Let's do", len(start_resis), "calculations!"
+
+    for i in range(len(start_resis)):
+        for n in range(len(start_resis[i])):
+            sr = start_resis[i][n]
+            ste = ses[n]
+            sem = sems[n]
+            ste.set_start_res_key(sr)
+            sem.transform_coordinates()
+ 
+        new_mod = {}
+        new_mod['frame'] = i
+        new_mod['model'] = [s.get_all_key_values() for s in ses]
+        new_mod['restraints'] = {}
+        tscore = 0
+        #print "MOD: ", new_mod['model']
+        for r in rests:
+            score = r.evaluate(False)
+            tscore+=score
+
+            new_mod['restraints'][r.get_name()] = r.evaluate(False)
+        new_mod['score'] = tscore
+
+        out_dict['models'].append(new_mod) 
+        if i%100==0: 
+            print str(i)+"th step", tscore #sf.evaluate(False), start_resis[i]
+      
+    return out_dict 
+
+
 def randomize_ses_start_residues(ses, seq_length):
     # given a number of SEs, randomize the start residues.
     import random
@@ -149,7 +223,9 @@ def setup_structural_element(root_hier, element, max_translation=1):
     # Get Particle Indexes for CA atoms 
     # from residue range element[0]:element[1]
     # From chain X
+    # @param element : a tuple of form (start_res, length, 'H'/'E'/'C')
     #print(range(element[0],element[0]+element[1]))
+
     pis = IMP.atom.Selection(root_hier, chain_id="A", 
                 residue_indexes=range(element[0],element[0]+element[1]),
                 atom_type=IMP.atom.AT_CA).get_selected_particles()
@@ -157,6 +233,7 @@ def setup_structural_element(root_hier, element, max_translation=1):
     pi = IMP.Particle(root_hier.get_model())
 
     h = IMP.atom.Hierarchy.setup_particle(pi)
+
     # Get XYZs
     xyz = []
     i = 0
@@ -164,35 +241,27 @@ def setup_structural_element(root_hier, element, max_translation=1):
         np = IMP.Particle(root_hier.get_model())
         hp = IMP.atom.Hierarchy.setup_particle(np)
         xyz = IMP.core.XYZR.setup_particle(np)
-        #m = IMP.atom.Mass.setup_particle(root_hier.get_model(), np)
         xyz.set_coordinates(IMP.core.XYZ(p).get_coordinates())
         xyz.set_radius(1.0)
         IMP.atom.Mass.setup_particle(np, 1.0)
-        #m.set_mass(1.0)
         h.add_child(hp)
-        #print IMP.core.XYZ(p).get_coordinates() 
-
-    #print xyz
 
     IMP.threading.StructureElement.setup_particle(root_hier.get_model(), pi.get_index(), element[0], 1, element[1], 0)
-    #se = se.setup_particle(p, element[0], 1, element[1], 0)
 
     # Set up this element as a helix
+    # particle, Helix, sheet, coil
     IMP.atom.SecondaryStructureResidue.setup_particle(pi, 1, 0, 0)
 
     se = IMP.threading.StructureElement(pi)
     se.set_keys_are_optimized(True)
     se.set_max_res(200)
 
-    #print "XXXxx", IMP.core.XYZ(root_hier.get_model(), h.get_children()[0].get_particle_index()), h.get_children()
     return se
 
 def setup_conditional_pair_restraint(p1, p2, length, xl_slope, constant):
-    #dps = IMP.core.DistancePairScore(IMP.core.HarmonicUpperBound(length, xl_slope))
     r = IMP.threading.LoopPairDistanceRestraint(m, IMP.core.HarmonicUpperBound(length, xl_slope), 
         p1, p2, constant)
 
-    #print r.get_sphere_cap_center()
     return r
 
 def setup_pair_restraint(p1, p2, length):
@@ -241,12 +310,10 @@ def modify_all_SECR(se_list, rst_list):
 
     return SECR_restraints
 
-#  Sequence of the disordered region
-#  2601 to 2800
+#  Sequence of DNAPKcs
 seq = "MAGSGAGVRCSLLRLQETLSAADRCGAALAGHQLIRGLGQECVLSSSPAVLALQTSLVFSRDFGLLVFVRKSLNSIEFRECREEILKFLCIFLEKMGQKIAPYSVEIKNTCTSVYTKDRAAKCKIPALDLLIKLLQTFRSSRLMDEFKIGELFSKFYGELALKKKIPDTVLEKVYELLGLLGEVHPSEMINNAENLFRAFLGELKTQMTSAVREPKLPVLAGCLKGLSSLLCNFTKSMEEDPQTSREIFNFVLKAIRPQIDLKRYAVPSAGLRLFALHASQFSTCLLDNYVSLFEVLLKWCAHTNVELKKAALSALESFLKQVSNMVAKNAEMHKNKLQYFMEQFYGIIRNVDSNNKELSIAIRGYGLFAGPCKVINAKDVDFMYVELIQRCKQMFLTQTDTGDDRVYQMPSFLQSVASVLLYLDTVPEVYTPVLEHLVVMQIDSFPQYSPKMQLVCCRAIVKVFLALAAKGPVLRNCISTVVHQGLIRICSKPVVLPKGPESESEDHRASGEVRTGKWKVPTYKDYVDLFRHLLSSDQMMDSILADEAFFSVNSSSESLNHLLYDEFVKSVLKIVEKLDLTLEIQTVGEQENGDEAPGVWMIPTSDPAANLHPAKPKDFSAFINLVEFCREILPEKQAEFFEPWVYSFSYELILQSTRLPLISGFYKLLSITVRNAKKIKYFEGVSPKSLKHSPEDPEKYSCFALFVKFGKEVAVKMKQYKDELLASCLTFLLSLPHNIIELDVRAYVPALQMAFKLGLSYTPLAEVGLNALEEWSIYIDRHVMQPYYKDILPCLDGYLKTSALSDETKNNWEVSALSRAAQKGFNKVVLKHLKKTKNLSSNEAISLEEIRIRVVQMLGSLGGQINKNLLTVTSSDEMMKSYVAWDREKRLSFAVPFREMKPVIFLDVFLPRVTELALTASDRQTKVAACELLHSMVMFMLGKATQMPEGGQGAPPMYQLYKRTFPVLLRLACDVDQVTRQLYEPLVMQLIHWFTNNKKFESQDTVALLEAILDGIVDPVDSTLRDFCGRCIREFLKWSIKQITPQQQEKSPVNTKSLFKRLYSLALHPNAFKRLGASLAFNNIYREFREEESLVEQFVFEALVIYMESLALAHADEKSLGTIQQCCDAIDHLCRIIEKKHVSLNKAKKRRLPRGFPPSASLCLLDLVKWLLAHCGRPQTECRHKSIELFYKFVPLLPGNRSPNLWLKDVLKEEGVSFLINTFEGGGCGQPSGILAQPTLLYLRGPFSLQATLCWLDLLLAALECYNTFIGERTVGALQVLGTEAQSSLLKAVAFFLESIAMHDIIAAEKCFGTGAAGNRTSPQEGERYNYSKCTVVVRIMEFTTTLLNTSPEGWKLLKKDLCNTHLMRVLVQTLCEPASIGFNIGDVQVMAHLPDVCVNLMKALKMSPYKDILETHLREKITAQSIEELCAVNLYGPDAQVDRSRLAAVVSACKQLHRAGLLHNILPSQSTDLHHSVGTELLSLVYKGIAPGDERQCLPSLDLSCKQLASGLLELAFAFGGLCERLVSLLLNPAVLSTASLGSSQGSVIHFSHGEYFYSLFSETINTELLKNLDLAVLELMQSSVDNTKMVSAVLNGMLDQSFRERANQKHQGLKLATTILQHWKKCDSWWAKDSPLETKMAVLALLAKILQIDSSVSFNTSHGSFPEVFTTYISLLADTKLDLHLKGQAVTLLPFFTSLTGGSLEELRRVLEQLIVAHFPMQSREFPPGTPRFNNYVDCMKKFLDALELSQSPMLLELMTEVLCREQQHVMEELFQSSFRRIARRGSCVTQVGLLESVYEMFRKDDPRLSFTRQSFVDRSLLTLLWHCSLDALREFFSTIVVDAIDVLKSRFTKLNESTFDTQITKKMGYYKILDVMYSRLPKDDVHAKESKINQVFHGSCITEGNELTKTLIKLCYDAFTENMAGENQLLERRRLYHCAAYNCAISVICCVFNELKFYQGFLFSEKPEKNLLIFENLIDLKRRYNFPVEVEVPMERKKKYIEIRKEAREAANGDSDGPSYMSSLSYLADSTLSEEMSQFDFSTGVQSYSYSSQDPRPATGRFRRREQRDPTVHDDVLELEMDELNRHECMAPLTALVKHMHRSLGPPQGEEDSVPRDLPSWMKFLHGKLGNPIVPLNIRLFLAKLVINTEEVFRPYAKHWLSPLLQLAASENNGGEGIHYMVVEIVATILSWTGLATPTGVPKDEVLANRLLNFLMKHVFHPKRAVFRHNLEIIKTLVECWKDCLSIPYRLIFEKFSGKDPNSKDNSVGIQLLGIVMANDLPPYDPQCGIQSSEYFQALVNNMSFVRYKEVYAAAAEVLGLILRYVMERKNILEESLCELVAKQLKQHQNTMEDKFIVCLNKVTKSFPPLADRFMNAVFFLLPKFHGVLKTLCLEVVLCRVEGMTELYFQLKSKDFVQVMRHRDDERQKVCLDIIYKMMPKLKPVELRELLNPVVEFVSHPSTTCREQMYNILMWIHDNYRDPESETDNDSQEIFKLAKDVLIQGLIDENPGLQLIIRNFWSHETRLPSNTLDRLLALNSLYSPKIEVHFLSLATNFLLEMTSMSPDYPNPMFEHPLSECEFQEYTIDSDWRFRSTVLTPMFVETQASQGTLQTRTQEGSLSARWPVAGQIRATQQQHDFTLTQTADGRSSFDWLTGSSTDPLVDHTSPSSDSLLFAHKRSERLQRAPLKSVGPDFGKKRLGLPGDEVDNKVKGAAGRTDLLRLRRRFMRDQEKLSLMYARKGVAEQKREKEIKSELKMKQDAQVVLYRSYRHGDLPDIQIKHSSLITPLQAVAQRDPIIAKQLFSSLFSGILKEMDKFKTLSEKNNITQKLLQDFNRFLNTTFSFFPPFVSCIQDISCQHAALLSLDPAAVSAGCLASLQQPVGIRLLEEALLRLLPAELPAKRVRGKARLPPDVLRWVELAKLYRSIGEYDVLRGIFTSEIGTKQITQSALLAEARSDYSEAAKQYDEALNKQDWVDGEPTEAEKDFWELASLDCYNHLAEWKSLEYCSTASIDSENPPDLNKIWSEPFYQETYLPYMIRSKLKLLLQGEADQSLLTFIDKAMHGELQKAILELHYSQELSLLYLLQDDVDRAKYYIQNGIQSFMQNYSSIDVLLHQSRLTKLQSVQALTEIQEFISFISKQGNLSSQVPLKRLLNTWTNRYPDAKMDPMNIWDDIITNRCFFLSKIEEKLTPLPEDNSMNVDQDGDPSDRMEVQEQEEDISSLIRSCKFSMKMKMIDSARKQNNFSLAMKLLKELHKESKTRDDWLVSWVQSYCRLSHCRSRSQGCSEQVLTVLKTVSLLDENNVSSYLSKNILAFRDQNILLGTTYRIIANALSSEPACLAEIEEDKARRILELSGSSSEDSEKVIAGLYQRAFQHLSEAVQAAEEEAQPPSWSCGPAAGVIDAYMTLADFCDQQLRKEEENASVIDSAELQAYPALVVEKMLKALKLNSNEARLKFPRLLQIIERYPEETLSLMTKEISSVPCWQFISWISHMVALLDKDQAVAVQHSVEEITDNYPQAIVYPFIISSESYSFKDTSTGHKNKEFVARIKSKLDQGGVIQDFINALDQLSNPELLFKDWSNDVRAELAKTPVNKKNIEKMYERMYAALGDPKAPGLGAFRRKFIQTFGKEFDKHFGKGGSKLLRMKLSDFNDITNMLLLKMNKDSKPPGNLKECSPWMSDFKVEFLRNELEIPGQYDGRGKPLPEYHVRIAGFDERVTVMASLRRPKRIIIRGHDEREHPFLVKGGEDLRQDQRVEQLFQVMNGILAQDSACSQRALQLRTYSVVPMTSRLGLIEWLENTVTLKDLLLNTMSQEEKAAYLSDPRAPPCEYKDWLTKMSGKHDVGAYMLMYKGANRTETVTSFRKRESKVPADLLKRAFVRMSTSPEAFLALRSHFASSHALICISHWILGIGDRHLNNFMVAMETGGVIGIDFGHAFGSATQFLPVPELMPFRLTRQFINLMLPMKETGLMYSIMVHALRAFRSDPGLLTNTMDVFVKEPSFDWKNFEQKMLKKGGSWIQEINVAEKNWYPRQKICYAKRKLAGANPAVITCDELLLGHEKAPAFRDYVAVARGSKDHNIRAQEPESGLSEETQVKCLMDQATDPNILGRTWEGWEPWM"
 
-
-# Restraint Weights
+# Restraint Slopes
 length_slope = 0.1
 xl_slope = 0.1
 semet_slope = 0.1
@@ -257,33 +324,25 @@ m = IMP.Model()
 ######################################
 pdbfile = "../5luq_A_CA.pdb"
 root_hier = IMP.atom.read_pdb(pdbfile, m)
-#IMP.atom.show_molecular_hierarchy(root_hier)
 
 # Define Structural Elements
 # These are the residues in the PDB that correspond to structural elements.
 # (start_res, length, SSID)
 #-------------------------
-#elements=[(3,10,'H'),(19,19,'H')], (56,8,'H')]
-
-
 elements=[(2602,14,'H'),(2623,25,'H'), (2655,10,'H')]
-#elements=[(2653,25,'H'), (2750,10,'H')]
 
-#elements=[(25,11,'H'),(3,16,'H'), (44,12,'H')]
 se = []
 
+# Create list of StructureElements
 for e in elements:
 	se.append(setup_structural_element(root_hier, e))
 
-#randomize_ses_start_residues(se, len(seq)+1)
-#se = sort_ses(se)
+
 #######################
 # Set up Sequence
 #######################
 seq_chain = IMP.atom.Chain.setup_particle(IMP.Particle(m), "S")
 root_hier.add_child(seq_chain)
-
-print root_hier.get_children()
 
 res_particles = []
 for i in range(len(seq)):
@@ -297,10 +356,9 @@ for i in range(len(seq)):
 
     sel = IMP.atom.Selection(root_hier.get_children()[0], residue_index=i).get_selected_particles()
     if len(sel) == 1:
-        #print i, IMP.core.XYZ(sel[0])
         IMP.core.XYZ(pr).set_coordinates(IMP.core.XYZ(sel[0]).get_coordinates())
         IMP.core.XYZ(pr).set_coordinates_are_optimized(True)
-    #IMP.atom.SecondaryStructureResidue.setup_particle(res.get_particle(), 0.8, 0, 0.2)
+
     seq_chain.add_child(res)
 
 rests = []
@@ -328,12 +386,13 @@ for xl in xl_22 + xl_12 + xl_8:
 # XL Restraint
 # ---------
 # (res1, res2, length)
-# Restraint is calculated using 
-xl_constant = 1.0 # #SDs higher than mean
-xl_slope = 0.05
+# Restraint is calculated using distance-per-residue library
+
+xl_constant = 1.0 # # of SDs higher than mean
+xl_slope = 0.05   # K-value of the harmonic
 xlr = []
 for xl in xl_sites:
-    print xl
+
     p1 = IMP.atom.Selection(root_hier, chain_id='S', residue_index=xl[0]).get_selected_particle_indexes()[0]
     p2 = IMP.atom.Selection(root_hier, chain_id='S', residue_index=xl[1]).get_selected_particle_indexes()[0]
 
@@ -343,7 +402,7 @@ for xl in xl_sites:
     r1 = IMP.atom.Residue(m, pis[0])
     r2 = IMP.atom.Residue(m, pis[1])
     print "XL Setup between residues: ", xl[0], xl[1], " at a length of ", xl[2], "|", r1, r2
-    #print r.evaluate(False)
+
     rests.append(r)
     xlr.append(r)
 
@@ -355,43 +414,26 @@ for s in se:
     rests.append(r)
 
 
+# Set up Terminal Elements
+# For the loop-length distance restraint, we need to define SEs for the structured residues at
+# each end of the unstructured domain(s)
 terms = [[(27.365, -37.659, 9.827),2575],[(49.775, -42.147, 7.299),2774]]
 term_ses = []
 for t in terms:
     term_ses.append(setup_terminal_element(root_hier, t[0], t[1]))
 
 
-'''
-# SeMet Position Restraint
-# ---------
-#Se_pos = [(25.018, -40.381, 32.070), (43.517, -26.296, 33.279)]
-#Se_pos = [(2.382,  -3.664, -12.726), (6.511, -12.492, -16.446)]
-Se_pos = []
-Se_dist = 3.4  # real value is ~3.28 from xtal structure
-met_particles = IMP.atom.Selection(root_hier, chain_id='S', residue_type=IMP.atom.MET).get_selected_particles()
-
-for s in Se_pos:
-    p = IMP.Particle(m)
-    xyzr = IMP.core.XYZR.setup_particle(p)
-    xyzr.set_coordinates(s)
-    xyzr.set_radius(1)
-    rs = []
-    for met in met_particles:
-        r = setup_pair_restraint(met, p, Se_dist)
-        rs.append(r)
-    mr = IMP.core.MinimumRestraint(1, rs, "SeRestraint%1%") 
-    rests.append(mr)
-'''
-# MODELLER CA-CA Restraint
-# ---------
-
 # Loop Length distances
 # ---------
 
-# Structural domain : sequence of SEs.  Use the sequence to 
+# A structural domain sets the sequence of SEs.  Use the sequence to 
 # add the E2E restraint.  model distance = last coord of SE1 - first coord of SE2.
 # evaluated distance = (first resid of S2 - last resid of SE1) * res_dist
-# Scoring function is persistance length of the random coil?
+
+# This restraint is incompatible with SE swapping moves, as that changes the order of the SEs
+# and, thus, would require re-formulating these restraints
+
+# First, get the permutation from the 
 
 print "THIS PERM: ", this_perm, perm_number
 se_pairs = []
@@ -400,55 +442,38 @@ se_pairs.append((se[this_perm[0]].get_particle_index(), se[this_perm[1]].get_par
 se_pairs.append((se[this_perm[1]].get_particle_index(), se[this_perm[2]].get_particle_index()))
 se_pairs.append((se[this_perm[2]].get_particle_index(), term_ses[-1].get_particle_index()))
 
-'''
-for i in range(len(se)-1):
-    print "RESIS: ", se[i].get_last_residue_number(), se[i+1].get_first_residue_number()
-    se_pairs.append((se[i].get_particle_index(), se[i+1].get_particle_index()))
-
-se_pairs.append((se[-1].get_particle_index(), term_ses[-1].get_particle_index()))
-'''
-print se_pairs
 
 secrs = []
 for s in se_pairs:#[::-1]:
-    print s
-    print "> ", IMP.threading.StructureElement(m, s[0]).get_resindex_list()[-1], IMP.threading.StructureElement(m, s[0]).get_resindex_list()
-    print "> ", IMP.threading.StructureElement(m, s[1]).get_resindex_list()[0], IMP.threading.StructureElement(m, s[1]).get_resindex_list()
+    #print s
+    #print "> ", IMP.threading.StructureElement(m, s[0]).get_resindex_list()[-1], IMP.threading.StructureElement(m, s[0]).get_resindex_list()
+    #print "> ", IMP.threading.StructureElement(m, s[1]).get_resindex_list()[0], IMP.threading.StructureElement(m, s[1]).get_resindex_list()
     
     r = add_SECR(s[0], s[1])
     secrs.append(r)
-    print ">>>> NRES:", r.get_number_of_residues(), r.get_model_distance(), r.get_max_distance()#, r.unprotected_evaluate(None), " "
-    #print "  -  ", IMP.threading.StructureElement(m, s[0]).get_start_res() + IMP.threading.StructureElement(m, s[0]).get_length(), IMP.threading.StructureElement(m, s[1]).get_start_res()
+    #print ">>>> NRES:", r.get_number_of_residues(), r.get_model_distance(), r.get_max_distance()#, r.unprotected_evaluate(None), " "
 
     rests.append(r)
+
 
 # PSIPRED Restraint
 # ---------
 
-# Need a SS restraint for each residue in the SEs. 
-# If the residue is 
+# Read PSIPRED output
 read_psipred_ss2("../data/psipred_dnapkcs.txt", res_particles)
 
-#for i in res_particles:
-#    print IMP.atom.SecondaryStructureResidue(i)
-
+# Get SE particle indexes
 se_part_indexes = [s.get_particle_index() for s in se]
 
 r = IMP.threading.SecondaryStructureParsimonyRestraint(m, se_part_indexes, seq_chain.get_particle_index(), 1.0)
-
-print r.get_baseline_probabilities(), r.unprotected_evaluate(None)
 
 rests.append(r)
 
 sf = IMP.core.RestraintsScoringFunction(rests)
 
-#print "EVALUATE - NO COORDS", sf.evaluate(False)
 
+'''
 
-
-#########################
-# Set up Structure Elements Samplers
-#########################
 # Add structural hierarchy
 struct_hier = IMP.atom.Chain.setup_particle(IMP.Particle(m), "X")
 IMP.core.XYZR.setup_particle(struct_hier)
@@ -460,12 +485,11 @@ f = IMP.atom.Fragment.setup_particle(p, range(6,13))
 
 # The "correct" alignment results from Key values:
 #  [(3,8,1,0), (19,19,1,0)]
-
+'''
 
 #########################
-# Move structure to Chain S
+# Set up MC and Structure Elements Movers
 #########################
-
 mc = IMP.core.MonteCarlo(m)
 mc.set_scoring_function(sf)
 mc.set_return_best(False)
@@ -473,207 +497,30 @@ mc.set_return_best(False)
 sems = []
 
 for s in se:
-    #ssee = IMP.threading.StructureElement(s)
-    #resis = IMP.atom.Selection(seq_chain, residue_indexes=s.get_resindex_list()).get_selected_particles()
     coordinates = s.get_coordinates()
     sem = IMP.threading.StructureElementMover(m, s.get_particle_index(), seq_chain.get_particle())
-    #for i in range(len(resis)):
-    #    r = resis[i]
-    #    IMP.core.XYZ(r).set_coordinates(coordinates[i])
-
-    #sem.zero_coordinates()
-
     sem.transform_coordinates()
-
-    #for i in seq_chain.get_children():
-    #    print i, IMP.core.XYZ(i.get_particle())
-    #for i in seq_chain.get_children():
-    #    print i, IMP.core.XYZ(i.get_particle())
-    #sem.reject()
-    #print s.get_all_key_values()
-    #for i in seq_chain.get_children():
-    #    print i, IMP.core.XYZ(i.get_particle())
-    #print IMP.atom.Selection(seq_chain, residue_indexes=s.get_resindex_list()).get_selected_particles()
     sems.append(sem)
-
     mc.add_mover(sem)
 
-    #for rs in res_particles[2600:2700]:
-    #    print IMP.atom.Residue(rs).get_index(), IMP.core.XYZ(rs).get_coordinates_are_optimized()
-
-
-#for r in xlr:
-#    print "-----"
-#    print r.evaluate(False)
-
-
-
-def coolate_output(se, sf):
-    outlist = [[s.get_all_key_values() for s in se], sf.evaluate(False)]
-    return outlist
-
-def run_one_sim(mc, n_equil_frames, n_prod_frames):
-    mc.set_return_best(False)
-    for f in range(n_equil_frames):
-        mc.optimize(1)
-    mc.set_return_best(True)
-    for f in range(n_prod_frames):
-        mc.optimize(10)
-
-'''
-for r in rests:
-    print r, r.evaluate(False)
-
-for s in se:
-    print "KEY VALUES BEFORE:", s.get_all_key_values()
-'''
-
-
-
-print "INIT EVALUATE", sf.evaluate(False), [(r.get_name(), r.evaluate(False)) for r in rests]
-#init_score = sf.evaluate(False)
-
-all_output=[]
-#print "NEW EVAL", sf.evaluate(False), [(r.get_name(), r.evaluate(False)) for r in rests]
-
-def enumerate_start_resis_3(seq_bounds, se_lengths, force=False):
-    # Given three SE's, enumerate the potential start residues
-    import itertools
-
-    if se_lengths > 5 and force is True:
-        print "Are you sure you want to enumerate this many SEs?"
-        print "If so, set force=True"
-        exit()
-
-    seq_len = seq_bounds[1] - seq_bounds[0]
-
-    print "Setting up enumeration for", len(se_lengths), "SEs", "from residues", seq_bounds[0], "to", seq_bounds[1]
-
-    all_se_perms = list(itertools.permutations(se_lengths, len(se_lengths)))
-
-    start_resis = []
-
-    for i in range(seq_bounds[0], seq_bounds[1] + 1 -se_lengths[0]-se_lengths[1]-se_lengths[2]-6):
-        for j in range(se_lengths[0]+i+2, seq_bounds[1]+1-se_lengths[1]-se_lengths[2]-4):
-            for k in range(se_lengths[1]+j+2, seq_bounds[1]+1-se_lengths[2]-2):
-                start_resis.append((i,j,k))
-
-
-    return start_resis
-
-def enumerate_start_resis_3_all(seq_bounds, se_lengths, force=False):
-    # Given three SE's, enumerate the potential start residues.
-    # Permute the order of the SEs as well
-
-    # First set is as given
-    ses = enumerate_start_resis_3(seq_bounds, se_lengths)
-
-    # 0 2 1
-    new_se_lengths = [se_lengths[0], se_lengths[2], se_lengths[1]]
-    new_ses = enumerate_start_resis_3(seq_bounds, new_se_lengths)
-    # Now swap 1 and 2 in the output
-    for i in new_ses:
-        ses.append((i[0], i[2], i[1]))
-
-    # 1 0 2
-    new_se_lengths = [se_lengths[1], se_lengths[0], se_lengths[2]]
-    new_ses = enumerate_start_resis_3(seq_bounds, new_se_lengths)
-    # Now swap 1 and 2 in the output
-    for i in new_ses:
-        ses.append((i[1], i[0], i[2]))
-
-    # 1 2 0
-    new_se_lengths = [se_lengths[1], se_lengths[2], se_lengths[0]]
-    new_ses = enumerate_start_resis_3(seq_bounds, new_se_lengths)
-    # Now swap 1 and 2 in the output
-    for i in new_ses:
-        ses.append((i[1], i[2], i[0]))
-
-    # 2 1 0
-    new_se_lengths = [se_lengths[2], se_lengths[1], se_lengths[0]]
-    new_ses = enumerate_start_resis_3(seq_bounds, new_se_lengths)
-    # Now swap 1 and 2 in the output
-    for i in new_ses:
-        ses.append((i[2], i[1], i[0]))
-
-    # 2 0 1
-    new_se_lengths = [se_lengths[2], se_lengths[0], se_lengths[1]]
-    new_ses = enumerate_start_resis_3(seq_bounds, new_se_lengths)
-    # Now swap 1 and 2 in the output
-    for i in new_ses:
-        ses.append((i[2], i[0], i[1]))
-
-    return ses
-
-
-def enumerate_start_resis_3_eval(start_resis, ses, sems, sf, f):
-
-    out_dict={}
-    out_dict['models'] = []
-
-    print "Let's do", len(start_resis), "calculations!"
-    for i in range(len(start_resis)):
-        #print i
-        for n in range(len(start_resis[i])):
-            sr = start_resis[i][n]
-            ste = ses[n]
-            sem = sems[n]
-	    #print i, n, sr, start_resis[i]
-            ste.set_start_res_key(sr)
-            sem.transform_coordinates()
-            #print ste.get_all_key_values(), ste.get_first_residue_number(), ste.get_last_residue_number(), ste.get_resindex_list()
-        #print i, i%1
-        #output = coolate_output(ses, sf)
-        new_mod = {}
-        new_mod['frame'] = i
-        new_mod['model'] = [s.get_all_key_values() for s in ses]
-        new_mod['restraints'] = {}
-        tscore = 0
-        #print "MOD: ", new_mod['model']
-        for r in rests:
-            score = r.evaluate(False)
-            tscore+=score
-            #print r, score
-            new_mod['restraints'][r.get_name()] = r.evaluate(False)
-        new_mod['score'] = tscore
-	'''
-	if new_mod['restraints']["SEConnectivityRestraint0"] == 10000 or new_mod['restraints']["SEConnectivityRestraint1"] == 10000 or new_mod['restraints']["SEConnectivityRestraint2"] == 10000 or new_mod['restraints']["SEConnectivityRestraint3"] == 10000:
-	    print "SECR OVERLOAD", start_resis[i], 
-	    for s in secrs:
-		print " |se", s.get_number_of_residues(), s.get_model_distance(), s.get_pia(), s.get_pib(), [(se.get_particle_index(), se.get_number_of_coordinates(), se.get_start_res()) for se in ses]
-	'''
-
-        out_dict['models'].append(new_mod) 
-        if i%100==0: 
-            print str(i)+"th step", tscore #sf.evaluate(False), start_resis[i]
-        '''
-        if (i+1)%10==0:
-            print str(i)+"th step, "+str(len(out_dict['models'])) +" models added"# ,sf.evaluate(False), start_resis[i]
-            json.dump(out_dict['models'], f) 
-            out_dict={}
-            out_dict['models'] = []
-        '''              
-    return out_dict 
-
-
-
-se_lengths=(14,25,10)
-#srs = enumerate_start_resis_3((2576,2774), se_lengths)
-a0=time.time()
-print "System setup:", a0-init
-#srs = enumerate_start_resis_3_all((2577,2772), se_lengths)
-
-# Re-order SE lengths
+# Re-order SE lengths to correspond to this permutation
 this_se_lengths = [se_lengths[this_perm[0]], se_lengths[this_perm[1]], se_lengths[this_perm[2]]]
 
 srs = enumerate_start_resis_3( (2577,2774-this_se_lengths[-1]), this_se_lengths)
 
-# still need to swap these by SE
+a0 = time.time()
+print "System setup:", a0-init
+
+print "INIT EVALUATE", sf.evaluate(False), [(r.get_name(), r.evaluate(False)) for r in rests]
+
+all_output=[]
+
+se_lengths=(14,25,10)
+
+
 
 new_srs=[]
 
-
-#srs = enumerate_start_resis_3((2716,2774), se_lengths)
 a = time.time()
 print "Num models", len(srs), "enum setup time:", a-a0
 
@@ -686,8 +533,6 @@ srs_for_us = srs[first:last]
 for s in srs_for_us:
    new_srs.append((s[this_perm.index(0)], s[this_perm.index(1)],s[this_perm.index(2)]))
 
-#for i in range(25):
-#    print srs[i], [se_lengths[n] + srs[i][n] for n in range(3)]
 
 print "Nums", first, last, len(srs_for_us), srs_for_us[0], srs_for_us[1]
 print "New Nums", first, last, len(srs_for_us), new_srs[0], new_srs[1]
@@ -695,61 +540,20 @@ print "New Nums", first, last, len(srs_for_us), new_srs[0], new_srs[1]
 f = open("enumerate_multi_"+str(n_thread)+"_"+str(perm_number)+"_"+str(n_per_thread)+".dat", "w")
 out_dict = enumerate_start_resis_3_eval(new_srs, se, sems, sf, f)
 a1 = time.time()
+
 print "Final "+str(len(out_dict['models'])) +" models added"
 print "Total time ", a1-a, "TPM=", (a1-a)/len(new_srs)
 
 
-
-
 json.dump(out_dict, f) 
 out_dict={}
-'''
 
-pi = se[0].get_particle_index()
-selement0 = IMP.threading.StructureElement(m, pi)
-h0 = IMP.atom.Hierarchy(m, pi)
-print i
-sel0 = IMP.atom.Selection(h0)
-oldsel0 = sel0.get_selected_particles()
-#for i in range(100000):
-for i in range(25):
-    selement = IMP.threading.StructureElement(m, pi)
-    h = IMP.atom.Hierarchy(m, pi)
-    #print i
-    sel = IMP.atom.Selection(h)
-    oldsel = sel.get_selected_particles()
-    sel.set_residue_indexes(selement.get_resindex_list())
-
-    new_coords = selement.get_coordinates()
-
-    for i in range(len(selement.get_resindex_list())):
-        coord = IMP.core.XYZ(oldsel[i])
-        coord.set_coordinates(new_coords[i])
-        coord.set_coordinates_are_optimized(True)
-'''
 IMP.atom.destroy(root_hier)
 print "destroyed"
 
 
-'''
-void StructureElementMover::transform_coordinates(){
-  // First, zero out the old coordiantes using the orig_keys_
-  StructureElement se(get_model(), pi_);
-  atom::Hierarchy h(get_model(), s_hier_pi_);
-  atom::Selection sel(h);
-  //std::cout << "RESINDEX_LIST: " << se.get_resindex_list() << std::endl;
-  sel.set_residue_indexes(se.get_resindex_list());
-  ParticlesTemp oldsel = sel.get_selected_particles();
-  algebra::Vector3Ds new_coords = se.get_coordinates(); // does not take into account polarity!!
-  //std::cout << "NEW_COORDS: " << new_coords << std::endl;
-  for (unsigned int i=0; i<se.get_resindex_list().size(); i++) {
-    core::XYZ coord(oldsel[i]);
-    coord.set_coordinates(new_coords[i]);
-    // Set this as a flag for evaluation or not
-    coord.set_coordinates_are_optimized(true);
-  }; 
-}
-'''
+
+
 
 
 
