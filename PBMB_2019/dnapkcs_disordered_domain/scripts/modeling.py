@@ -380,21 +380,6 @@ for s in se:
 print "INIT EVALUATE", sf.evaluate(False), [(r.get_name(), r.evaluate(False)) for r in rests]
 #init_score = sf.evaluate(False)
 
-'''
-for r in secrs:
-    print r.get_name(), r.evaluate(False), r.get_model_distance(), r.get_number_of_residues()
-
-for s in se:
-    print s.get_coordinates()[0], s.get_coordinates()[-1], s.get_first_residue_number(), s.get_last_residue_number(), s.get_resindex_list()
-    print seq[s.get_first_residue_number():s.get_last_residue_number()+1]
-
-for mp in met_particles:
-    print "MP", IMP.core.XYZ(mp)
-
-for p in seq_chain.get_children():
-    print IMP.atom.Residue(p.get_particle()), IMP.core.XYZ(p.get_particle())
-'''
-
 
 start_positions = []
 for s in se:

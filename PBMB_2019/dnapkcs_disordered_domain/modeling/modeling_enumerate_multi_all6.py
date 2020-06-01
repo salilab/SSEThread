@@ -517,8 +517,6 @@ all_output=[]
 
 se_lengths=(14,25,10)
 
-
-
 new_srs=[]
 
 a = time.time()
