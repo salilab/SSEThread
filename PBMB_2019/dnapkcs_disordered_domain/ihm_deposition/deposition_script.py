@@ -29,19 +29,7 @@ title = ("Integrative threading of the DNA-PKcs sequence based on data from "
   "chemical cross-linking and hydrogen deuterium exchange")
 system = ihm.System(title=title)
 
-
-# Will finish citation when manuscript is published
-'''
-system.citations.append(ihm.Citation(
-          pmid='25139911', title="SSEThread: Integrative threading of the DNA-PKcs sequence based on data "
-          "from chemical cross-linking and hydrogen deuterium exchange",
-          journal="Progress in Biophysics and Molecular Biology", 
-          year=2019,
-          authors=['Saltzberg DJ', 'Hepburn M', 'Pilla KB',
-                   'Schriemer D', 'Lees-Miller SP', 'Blundell T', 'Sali A']))
-'''
-
-
+system.citations.append(ihm.Citation.from_pubmed_id(31570166))
 
 # PSIPRED was used to provide a prediction of the secondary structure for 
 # each residue in sequence
