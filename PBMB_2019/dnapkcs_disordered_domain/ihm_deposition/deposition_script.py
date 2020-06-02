@@ -147,7 +147,7 @@ xlr_dists = [42, 32, 27]
 
 
 # Add the individual crosslinks to each restraint
-f_num=0
+psf = PseudoSiteFinder(atoms)
 for r in range(len(xlrs)):
     for line in open(xlrs[r].dataset.location.path, "r"):
         if "Decision" in line:
@@ -163,25 +163,9 @@ for r in range(len(xlrs)):
             if (res1 > 2574 and res1 <2775) or (res2 > 2574 and res2 <2775):
                 # First, create the poly_residue_feature and pseudo_site for each residue
                 # add them to the feature
-                id1 = f_num
-                id2 = f_num+1
-
-                prf1 = ihm.restraint.ResidueFeature(ranges=[asym(res1,res1)])
-                prf2 = ihm.restraint.ResidueFeature(ranges=[asym(res2,res2)])
-                prf1_id = id1
-                prf2_id = id2
 
                 # Make a function to get this pseudosite
-                ps1c, ps2c = get_pseudo_site_endpoints(res1, res2, atoms)
-                ps1 = ihm.restraint.PseudoSiteFeature(x=ps1c[0], y=ps1c[1], z=ps1c[2], radius=0.0)
-                ps2 = ihm.restraint.PseudoSiteFeature(x=ps2c[0], y=ps2c[1], z=ps2c[2], radius=0.0)
-                ps1.set_details('This pseudo site corresponds to residue '+str(res1)+' from entity 1. It is not part of the model representation but is part of the experimental restraints')
-                ps2.set_details('This pseudo site corresponds to residue '+str(res2)+' from entity 1. It is not part of the model representation but is part of the experimental restraints')
-                ps1.set_entity_type("polymer")
-                ps2.set_entity_type("polymer")
-                ps1._id = id1
-                ps2._id = id2
-                f_num+=2
+                ps1, ps2, form = psf.get_pseudo_site_endpoints(res1, res2)
 
                 '''
                 f1 = ihm.restraint.Feature()
@@ -196,10 +180,6 @@ for r in range(len(xlrs)):
                 f2.details = 'This pseudo site corresponds to residue '+str(res2)+' from entity 1. It is not part of the model representation but is part of the experimental restraints'
                 '''
 
-                system.orphan_features.append(prf1)
-                system.orphan_features.append(prf2)
-                system.orphan_features.append(ps1)
-                system.orphan_features.append(ps2)
                 # Second, create the derived distance restraints using these features
                 #expxl = ihm.restraint.ExperimentalCrossLink(entity.residue(res1), entity.residue(res2))
                 #xls.append(expxl)
