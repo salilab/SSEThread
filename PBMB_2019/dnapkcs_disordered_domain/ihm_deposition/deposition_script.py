@@ -114,11 +114,6 @@ rep = ihm.representation.Representation(
         [ihm.representation.ResidueSegment(asym, rigid=True, primitive="sphere", starting_model=start_model)])
 
 # Set up crosslinking restraints. First, we define new cross-linking reagents
-dsg = ihm.ChemDescriptor('DSG', chemical_name='disuccinimidyl glutarate',
-              smiles='C1CC(=O)N(C1=O)OC(=O)CCCC(=O)ON2C(=O)CCC2=O',
-              inchi='1S/C13H14N2O8/c16-8-4-5-9(17)14(8)22-12(20)2-1-3-13(21)23-15-10(18)6-7-11(15)19/h1-7H2',
-              inchi_key='LNQHREYHFRFJAU-UHFFFAOYSA-N')
-
 bsp = ihm.ChemDescriptor('BSP', chemical_name='Bis(succinimidyl) penta(ethylene glycol)',
               smiles='C1C(N(C(C1)=O)OC(CCOCCOCCOCCOCCOCCC(=O)ON2C(CCC2=O)=O)=O)=O',
               inchi='InChI=1S/C22H32N2O13/c25-17-1-2-18(26)23(17)36-21(29)5-7-31-9-11-33-13-15-35-16-14-34-12-10-32-8-6-22(30)37-24-19(27)3-4-20(24)28/h1-16H2',
@@ -133,7 +128,7 @@ bsp_dataset = ihm.dataset.CXMSDataset(l_bsp)
 dss_dataset = ihm.dataset.CXMSDataset(l_dss)
 dsg_dataset = ihm.dataset.CXMSDataset(l_dsg)
 
-dsg_restraint = ihm.restraint.CrossLinkRestraint(dsg_dataset, dsg)
+dsg_restraint = ihm.restraint.CrossLinkRestraint(dsg_dataset, ihm.cross_linkers.dsg)
 dss_restraint = ihm.restraint.CrossLinkRestraint(dss_dataset, ihm.cross_linkers.dss)
 bsp_restraint = ihm.restraint.CrossLinkRestraint(bsp_dataset, bsp)
 system.restraints.extend((dsg_restraint, dss_restraint, bsp_restraint))
