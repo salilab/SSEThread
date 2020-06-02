@@ -1,5 +1,6 @@
 import numpy
 import math
+import ihm.restraint
 
 
 nsh_mean = [0, 3.809, 3.137, 2.818, 2.482, 2.154, 1.928, 1.749, 1.67, 1.531, 1.428, 1.377, 1.282, 1.261, 1.203,
@@ -190,24 +191,39 @@ def calculate_pseudosites(n1, c1, n2, c2):
     return ps1, ps2
 
 
-def get_pseudo_site_endpoints(res1, res2, atoms):
-    #print "*****************************"
-    nte1, cte1 = get_closest_endpoints(res1, atoms)
-    nte2, cte2 = get_closest_endpoints(res2, atoms)
+class PseudoSiteFinder(object):
+    def __init__(self, atoms):
+        self.atoms = atoms
+        # dict with keys=residues, values=PseudoSiteFeature
+        self._seen_sites = {}
 
-    # If residue number is zero, this is a structured residue
-    # The pseudo-sites are the coordinates of this residue
-    ps1, ps2 = calculate_pseudosites(nte1, cte1, nte1, cte2)
+    def get_pseudo_site_endpoints(self, res1, res2):
+        #print "*****************************"
+        nte1, cte1 = get_closest_endpoints(res1, self.atoms)
+        nte2, cte2 = get_closest_endpoints(res2, self.atoms)
 
-    form = 0
-    if nte1[1] == 0:
-        form+=1
-    if nte2[1] == 0:
-        form+=2
-        
-    return ps1, ps2, form
+        # If residue number is zero, this is a structured residue
+        # The pseudo-sites are the coordinates of this residue
+        ps1, ps2 = calculate_pseudosites(nte1, cte1, nte1, cte2)
 
+        form = 0
+        if nte1[1] == 0:
+            form+=1
+        if nte2[1] == 0:
+            form+=2
 
+        return (self.get_pseudo_site_feature(ps1, res1),
+                self.get_pseudo_site_feature(ps2, res2), form)
 
-
-
+    def get_pseudo_site_feature(self, coord, res):
+        if res not in self._seen_sites:
+            # Don't duplicate features if we see the same residue multiple times
+            ps = ihm.restraint.PseudoSite(
+                    x=coord[0], y=coord[1], z=coord[2],
+                    description='This pseudo site corresponds to residue '
+                        + str(res) + ' from entity 1. It is not part of the '
+                        'model representation but is part of the '
+                        'experimental restraints')
+            psf = ihm.restraint.PseudoSiteFeature(ps)
+            self._seen_sites[res] = psf
+        return self._seen_sites[res]
