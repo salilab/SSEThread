@@ -107,7 +107,7 @@ class StartingModel(ihm.startmodel.StartingModel):
     return self._atoms
 
 start_model = StartingModel(asym, pdb_dataset, 'A')
-atoms = start_model.add_atoms("5LUQ_A_CA.pdb")
+atoms = start_model.add_atoms("5luq_A_CA.pdb")
 
 
 rep = ihm.representation.Representation(
