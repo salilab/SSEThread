@@ -107,7 +107,7 @@ class StartingModel(ihm.startmodel.StartingModel):
     return self._atoms
 
 start_model = StartingModel(asym, pdb_dataset, 'A')
-atoms = start_model.add_atoms("5luq_A_CA.pdb")
+atoms = start_model.add_atoms("../data/5luq_A_CA.pdb")
 
 
 rep = ihm.representation.Representation(
@@ -120,9 +120,12 @@ bsp = ihm.ChemDescriptor('BSP', chemical_name='Bis(succinimidyl) penta(ethylene 
               inchi_key='FTYUGLBWKRXQBD-UHFFFAOYSA-N')
 
 # Second, we add the cross-linking files from MSStudio output
-l_bsp = ihm.location.InputFileLocation("./BSP-350X-SEC.csv", details="BSP Crosslink File")
-l_dss = ihm.location.InputFileLocation("./DSS-350X-SEC.csv", details="DSS Crosslink File")
-l_dsg = ihm.location.InputFileLocation("./DSG-Crosslinks-2.csv", details="DSG Crosslink File")
+l_bsp = ihm.location.InputFileLocation(
+        "../data/BSP-350X-SEC.csv", details="BSP Crosslink File")
+l_dss = ihm.location.InputFileLocation(
+        "../data/DSS-350X-SEC.csv", details="DSS Crosslink File")
+l_dsg = ihm.location.InputFileLocation(
+        "../data/DSG-Crosslinks-2.csv", details="DSG Crosslink File")
 
 bsp_dataset = ihm.dataset.CXMSDataset(l_bsp)
 dss_dataset = ihm.dataset.CXMSDataset(l_dss)
