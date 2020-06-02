@@ -11,6 +11,7 @@ import ihm.dataset
 import ihm.representation
 import ihm.restraint
 import ihm.protocol
+import ihm.analysis
 import ihm.model
 import ihm.dumper
 import ihm.startmodel
@@ -199,7 +200,12 @@ protocol.steps.append(ihm.protocol.Step(
                         method='Enumeration',
                         name='Production sampling',
                         num_models_begin=0,
-                        num_models_end=1000, multi_scale=False))
+                        num_models_end=2860000, multi_scale=False))
+analysis = ihm.analysis.Analysis()
+analysis.steps.append(ihm.analysis.FilterStep(
+    feature='RMSD', num_models_begin=2860000, num_models_end=10000,
+    assembly=assembly))
+protocol.analyses.append(analysis)
 
 # Rather than storing another copy of the coordinates in the IHM library
 # (which could use a lot of memory), we need to provide a mechanism to
@@ -281,22 +287,25 @@ for pdb_file in glob.glob("../modeling/bsms_pdbs/bsms_*100.pdb")[0:1]:
 
 #---------------
 # Write .dcd file of all of the best scoring models
-'''
 dcd = 'best_scoring_models.dcd'
-fh = open(dcd, "wb")
-d = ihm.model.DCDWriter(fh)
+dcd_models = ["../modeling/bsms_pdbs/bsms_%d.pdb" % num for num in range(10000)]
+with open(dcd, "wb") as fh:
+    d = ihm.model.DCDWriter(fh)
 
-for pdb_file in glob.glob("../modeling/bsms_pdbs/bsms_*100.pdb"):
-    m = Model(assembly = assembly, protocol=protocol, representation=rep,
-        file_name=pdb_file, asym_units=[asym])
-    d.add_model(m)
-'''
+    for i, pdb_file in enumerate(dcd_models):
+        if i % 20 == 0:
+            print("Added %d of %d models to DCD" % (i, len(dcd_models)))
+        m = Model(assembly=assembly, protocol=protocol, representation=rep,
+            file_name=pdb_file, asym_units=[asym])
+        m.get_residues()
+        d.add_model(m)
 l_dcd = ihm.location.OutputFileLocation('best_scoring_models.dcd')
 
 mg = ihm.model.ModelGroup(models)
-me = ihm.model.Ensemble(mg, len(models),
-    post_process="filtering",
-    file=l_dcd)
+me = ihm.model.Ensemble(mg, len(dcd_models),
+    post_process=protocol.analyses[-1],
+    file=l_dcd, name="Best scoring models")
+system.ensembles.append(me)
 
 # Groups are then placed into states, which can in turn be grouped. In this
 # case we have only a single state:
