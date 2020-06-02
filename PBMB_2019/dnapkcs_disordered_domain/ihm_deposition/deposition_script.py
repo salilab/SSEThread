@@ -61,7 +61,7 @@ system.software.append(ihm.Software(
           location='https://integrativemodeling.org'))
 
 # Next, we describe the input data we used, using dataset classes.
-pdb_l = ihm.location.DatabaseLocation("PDB", "5LUQ", 1.1)
+pdb_l = ihm.location.PDBLocation("5LUQ", version="1.1")
 pdb_dataset = ihm.dataset.PDBDataset(pdb_l)
 
 # Next, define the entities for each unique sequence in the system
