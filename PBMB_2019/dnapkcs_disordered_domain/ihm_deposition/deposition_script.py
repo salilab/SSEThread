@@ -314,6 +314,14 @@ state = ihm.model.State([mg],
                     name='Threading Ensemble Solution')
 system.state_groups.append(ihm.model.StateGroup([state]))
 
+# Rewrite local paths to point to Zenodo
+r = ihm.location.Repository(
+    doi="10.5281/zenodo.2580423",
+    url="https://zenodo.org/record/2580424/files/salilab/SSEThread-v0.1.zip",
+    top_directory="salilab-SSEThread-bf6b912",
+    root="../../..")
+system.update_locations_in_repositories([r])
+
 # Once the system is complete, we can write it out to an mmCIF file:
 with open('output.cif', 'w') as fh:
     ihm.dumper.write(fh, [system])
