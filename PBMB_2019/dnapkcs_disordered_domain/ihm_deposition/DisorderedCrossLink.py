@@ -205,7 +205,7 @@ class PseudoSiteFinder(object):
 
         # If residue number is zero, this is a structured residue
         # The pseudo-sites are the coordinates of this residue
-        ps1, ps2 = calculate_pseudosites(nte1, cte1, nte1, cte2)
+        ps1, ps2 = calculate_pseudosites(nte1, cte1, nte2, cte2)
 
         form = 0
         if nte1[1] == 0:
