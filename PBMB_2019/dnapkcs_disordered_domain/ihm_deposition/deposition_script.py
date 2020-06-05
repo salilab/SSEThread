@@ -135,8 +135,9 @@ xlrs = [dsg_restraint, dss_restraint, bsp_restraint]
 xlr_dists = [42, 32, 27]
 
 # Add all experimentally-determined cross-links
-for r in xlrs:
+for r, dist in zip(xlrs, xlr_dists):
     with open(r.dataset.location.path) as fh:
+        distance = ihm.restraint.UpperBoundDistanceRestraint(dist)
         for line in fh:
             if "Decision" in line:
                 ix = line.split(",").index("Selected Sites")
@@ -147,32 +148,36 @@ for r in xlrs:
                 ex_xl = ihm.restraint.ExperimentalCrossLink(
                             entity.residue(res1), entity.residue(res2))
                 r.experimental_cross_links.append([ex_xl])
+                # We only utilized crosslinks with endpoints in the
+                # 199-residue disordered region (2575-2774)
+                if ((res1 > 2574 and res1 < 2775)
+                    or (res2 > 2574 and res2 < 2775)):
+                    # Add cross-link between residues
+                    rcl = ihm.restraint.ResidueCrossLink(
+                            ex_xl, asym1=asym, asym2=asym, distance=distance)
+                    r.cross_links.append(rcl)
 
 
 def add_model_cross_links(m):
-    """Add modeled cross links for a given model. The endpoints for these
-       restraints are model-dependent so we must duplicate these for
-       each model."""
+    """Add cross-link information for a given model (the endpoint
+       coordinates are model-dependent)."""
 
     psf = PseudoSiteFinder(m)
-    for r, dist in zip(xlrs, xlr_dists):
-        distance = ihm.restraint.UpperBoundDistanceRestraint(dist)
-
-        for ex_xl_group in r.experimental_cross_links:
-            ex_xl, = ex_xl_group
-            # We only utilized crosslinks with endpoints in the
-            # 199-residue disordered region (2575-2774)
+    for r in xlrs:
+        for xl in r.cross_links:
+            ex_xl = xl.experimental_cross_link
             res1 = ex_xl.residue1.seq_id
             res2 = ex_xl.residue2.seq_id
-            if (res1 > 2574 and res1 < 2775) or (res2 > 2574 and res2 < 2775):
-                # Make a function to get this pseudosite
-                ps1, ps2, form = psf.get_pseudo_site_endpoints(res1, res2)
+            # Make a function to get this pseudosite
+            ps1, ps2, form = psf.get_pseudo_site_endpoints(res1, res2)
 
-                # Add cross-link between residues
-                rcl = ihm.restraint.ResidueCrossLink(
-                        ex_xl, asym1=asym, asym2=asym, distance=distance,
-                        pseudo1=ps1, pseudo2=ps2)
-                r.cross_links.append(rcl)
+            # Add pseudo-site to the existing restraint
+            if xl.pseudo1 is None:
+                xl.pseudo1 = []
+            if xl.pseudo2 is None:
+                xl.pseudo2 = []
+            xl.pseudo1.append(ps1)
+            xl.pseudo2.append(ps2)
 
 # Now we add information about how the modeling was done by defining one
 # or more protocols. Here we enumerated all possible threading solutions
