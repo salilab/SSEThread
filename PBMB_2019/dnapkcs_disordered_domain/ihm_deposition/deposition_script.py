@@ -42,12 +42,22 @@ system.software.append(ihm.Software(
           location='http://bioinf.cs.ucl.ac.uk/psipred/'))
 
 # We used various tools from IMP
-system.software.append(ihm.Software(
+imp_software = ihm.Software(
           name="Integrative Modeling Platform (IMP)",
           version="2.2",
           classification="integrative model building",
           description="integrative model building",
-          location='https://integrativemodeling.org'))
+          location='https://integrativemodeling.org')
+system.software.append(imp_software)
+
+# We used scikit-learn for clustering
+sklearn_software = ihm.Software(
+          name="scikit-learn",
+          version="0.21.3",
+          classification="model building",
+          description="Machine learning in Python",
+          location='https://scikit-learn.org/stable/')
+system.software.append(sklearn_software)
 
 # Next, we describe the input data we used, using dataset classes.
 pdb_l = ihm.location.PDBLocation("5LUQ", version="1.1")
@@ -159,19 +169,6 @@ for r in range(len(xlrs)):
                 # Make a function to get this pseudosite
                 ps1, ps2, form = psf.get_pseudo_site_endpoints(res1, res2)
 
-                '''
-                f1 = ihm.restraint.Feature()
-                f2 = ihm.restraint.Feature()
-                f1._id = id1
-                f2._id = id2
-                f1.type = 'pseudo site'
-                f1.type = 'pseudo site'
-                f1._get_entity_type = 'polymer'
-                f2._get_entity_type = 'polymer'
-                f1.details = 'This pseudo site corresponds to residue '+str(res1)+' from entity 1. It is not part of the model representation but is part of the experimental restraints'
-                f2.details = 'This pseudo site corresponds to residue '+str(res2)+' from entity 1. It is not part of the model representation but is part of the experimental restraints'
-                '''
-
                 # Second, create the derived distance restraints using these features
                 #expxl = ihm.restraint.ExperimentalCrossLink(entity.residue(res1), entity.residue(res2))
                 #xls.append(expxl)
@@ -180,12 +177,6 @@ for r in range(len(xlrs)):
                                                             feature2 = ps2, 
                                                             distance = distance)
                 system.restraints.append(ddrxl)
-                #rxl = ihm.restraint.ResidueCrossLink(expxl, asym, asym, distance)
-                #xlxls.append(rxl)
-                #xlrs[r].cross_links.append(rxl)
-                #xlrs[r].experimental_cross_links.append([expxl])
-                #xlrs[r].experimental_cross_links.append([ddrxl])
-                #xlrs[r].cross_links.append(rxl)
 
 # Now we add information about how the modeling was done by defining one
 # or more protocols. Here we enumerated all possible threading solutions
@@ -194,17 +185,30 @@ all_datasets = ihm.dataset.DatasetGroup((dsg_dataset,
                                          dss_dataset, bsp_dataset))
 
 protocol = ihm.protocol.Protocol(name='Modeling')
+modeling_script = ihm.location.WorkflowFileLocation(
+        "../modeling/modeling_enumerate_multi.py",
+        details="Main modeling script")
 protocol.steps.append(ihm.protocol.Step(
                         assembly=assembly,
                         dataset_group=all_datasets,
                         method='Enumeration',
                         name='Production sampling',
                         num_models_begin=0,
-                        num_models_end=2860000, multi_scale=False))
+                        num_models_end=2860000, multi_scale=False,
+                        script_file=modeling_script,
+                        software=imp_software))
 analysis = ihm.analysis.Analysis()
 analysis.steps.append(ihm.analysis.FilterStep(
-    feature='RMSD', num_models_begin=2860000, num_models_end=10000,
-    assembly=assembly))
+    feature='energy/score', num_models_begin=2860000, num_models_end=5000,
+    assembly=assembly,
+    details="Selection of the top 5000 best-scoring solutions"))
+cluster_script = ihm.location.WorkflowFileLocation(
+        "../modeling/cluster_bsms.py",
+        details="Clustering script using KMeans from scikit-learn")
+analysis.steps.append(ihm.analysis.ClusterStep(
+    feature='RMSD', num_models_begin=5000, num_models_end=5000,
+    assembly=assembly, details="Clustering using KMeans",
+    script_file=cluster_script, software=sklearn_software))
 protocol.analyses.append(analysis)
 
 # Rather than storing another copy of the coordinates in the IHM library
@@ -276,40 +280,47 @@ class Model(ihm.model.Model):
 
 
 
-# Here, we place a subset of the best scoring models into the deposition
-models = []
-for pdb_file in glob.glob("../modeling/bsms_pdbs/bsms_*100.pdb")[0:1]:
-    #print(pdb_file)
-    m = Model(assembly = assembly, protocol=protocol, representation=rep,
-        file_name=pdb_file, asym_units=[asym])
-    m.get_residues()
-    models.append(m)
-
-#---------------
-# Write .dcd file of all of the best scoring models
-dcd = 'best_scoring_models.dcd'
-dcd_models = ["../modeling/bsms_pdbs/bsms_%d.pdb" % num for num in range(10000)]
-with open(dcd, "wb") as fh:
-    d = ihm.model.DCDWriter(fh)
-
-    for i, pdb_file in enumerate(dcd_models):
-        if i % 20 == 0:
-            print("Added %d of %d models to DCD" % (i, len(dcd_models)))
-        m = Model(assembly=assembly, protocol=protocol, representation=rep,
-            file_name=pdb_file, asym_units=[asym])
+# Here, we place a subset of the best scoring models for each cluster
+# into the deposition
+mgs = []
+for cluster in range(2):
+    with open('../modeling/cluster%d_ids.dat' % cluster) as fh:
+        pdbs = ["../modeling/bsms_pdbs/bsms_%d.pdb" % int(x)
+                for x in fh.readlines()]
+    models = []
+    for pdb_file in pdbs[0:1]:
+        #print(pdb_file)
+        m = Model(assembly = assembly, protocol=protocol, representation=rep,
+                  file_name=pdb_file, asym_units=[asym],
+                  name="Example model for cluster %d" % cluster)
         m.get_residues()
-        d.add_model(m)
-l_dcd = ihm.location.OutputFileLocation('best_scoring_models.dcd')
+        models.append(m)
 
-mg = ihm.model.ModelGroup(models)
-me = ihm.model.Ensemble(mg, len(dcd_models),
-    post_process=protocol.analyses[-1],
-    file=l_dcd, name="Best scoring models")
-system.ensembles.append(me)
+    #---------------
+    # Write .dcd file of all of the best scoring models
+    dcd = 'cluster%d.dcd' % cluster
+    with open(dcd, "wb") as fh:
+        d = ihm.model.DCDWriter(fh)
+
+        for i, pdb_file in enumerate(pdbs):
+            if i % 20 == 0:
+                print("Added %d of %d models to DCD" % (i, len(pdbs)))
+            m = Model(assembly=assembly, protocol=protocol, representation=rep,
+                file_name=pdb_file, asym_units=[asym])
+            m.get_residues()
+            d.add_model(m)
+    l_dcd = ihm.location.OutputFileLocation('cluster%d.dcd' % cluster)
+
+    mg = ihm.model.ModelGroup(models, name="Cluster %d" % cluster)
+    mgs.append(mg)
+    me = ihm.model.Ensemble(mg, len(pdbs),
+        post_process=protocol.analyses[-1],
+        file=l_dcd, name="Cluster %d" % cluster)
+    system.ensembles.append(me)
 
 # Groups are then placed into states, which can in turn be grouped. In this
 # case we have only a single state:
-state = ihm.model.State([mg],
+state = ihm.model.State(mgs,
                     type='Threading Ensemble',
                     name='Threading Ensemble Solution')
 system.state_groups.append(ihm.model.StateGroup([state]))
