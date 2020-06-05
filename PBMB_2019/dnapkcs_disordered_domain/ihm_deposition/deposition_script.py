@@ -81,32 +81,28 @@ assembly = ihm.Assembly([asym], name='Threading Model')
 # The system was represented as a bead model with one residue per bead
 # Using chain A of 5LUQ pdb
 class StartingModel(ihm.startmodel.StartingModel):
-  def add_atoms(self, pdb_file):
-    p = Bio.PDB.PDBParser()
-    s = p.get_structure('rep', pdb_file)
-    for model in s:
-        for nchain, chain in enumerate(model):
-            #print(nchain, chain)
-            for residue in chain.get_residues():
-                for atom in residue:
-                    #print(residue, atom)
-                    coord = atom.get_vector()
-                    self._atoms.append(
-                                      ihm.model.Atom(asym_unit=asym, 
-                                      seq_id = residue.get_id()[1], 
-                                      atom_id = "CA", 
-                                      type_symbol = "C",
-                                      x = coord[0], 
-                                      y = coord[1], 
-                                      z = coord[2],)
-                                      )
-    return self._atoms
+    def __init__(self, pdb_file, **kwargs):
+        super(StartingModel, self).__init__(**kwargs)
+        self.pdb_file = pdb_file
 
-  def get_atoms(self):
-    return self._atoms
+    def get_atoms(self):
+        p = Bio.PDB.PDBParser()
+        s = p.get_structure('rep', self.pdb_file)
+        for model in s:
+            for nchain, chain in enumerate(model):
+                #print(nchain, chain)
+                for residue in chain.get_residues():
+                    for atom in residue:
+                        #print(residue, atom)
+                        coord = atom.get_vector()
+                        yield ihm.model.Atom(
+                                asym_unit=asym, seq_id=residue.get_id()[1],
+                                atom_id="CA", type_symbol="C",
+                                x=coord[0], y=coord[1], z=coord[2])
 
-start_model = StartingModel(asym, pdb_dataset, 'A')
-atoms = start_model.add_atoms("../data/5luq_A_CA.pdb")
+
+start_model = StartingModel(asym_unit=asym, dataset=pdb_dataset, asym_id='A',
+                            pdb_file="../data/5luq_A_CA.pdb")
 
 
 rep = ihm.representation.Representation(
@@ -138,49 +134,49 @@ system.restraints.extend((dsg_restraint, dss_restraint, bsp_restraint))
 xlrs = [dsg_restraint, dss_restraint, bsp_restraint]
 xlr_dists = [42, 32, 27]
 
-# Create IHMFeatureList
-# - entity_type 'polymer'
-# - feture_type 'residue'
-#fl = ihm.restraint.FeatureList(entity_type = 'polymer', feature_type='residue')
+# Add all experimentally-determined cross-links
+for r in xlrs:
+    with open(r.dataset.location.path) as fh:
+        for line in fh:
+            if "Decision" in line:
+                ix = line.split(",").index("Selected Sites")
+            if "Accepted" in line:
+                ssites = line.split(",")[ix].split(";")[0].replace("[", "").replace("]", "")
+                res1 = int(ssites.split("-")[0][1:])
+                res2 = int(ssites.split("-")[1][1:])
+                ex_xl = ihm.restraint.ExperimentalCrossLink(
+                            entity.residue(res1), entity.residue(res2))
+                r.experimental_cross_links.append([ex_xl])
 
-#rg = ihm.restraint.RestraintGroup()
 
-#system.restraints.extend(rg)
+def add_model_cross_links(m):
+    """Add modeled cross links for a given model. The endpoints for these
+       restraints are model-dependent so we must duplicate these for
+       each model."""
 
+    psf = PseudoSiteFinder(m)
+    for r, dist in zip(xlrs, xlr_dists):
+        distance = ihm.restraint.UpperBoundDistanceRestraint(dist)
 
-# Add the individual crosslinks to each restraint
-psf = PseudoSiteFinder(atoms)
-for r in range(len(xlrs)):
-    for line in open(xlrs[r].dataset.location.path, "r"):
-        if "Decision" in line:
-            ix = line.split(",").index("Selected Sites")
-        if "Accepted" in line:
-            ssites = line.split(",")[ix].split(";")[0].replace("[", "").replace("]", "")
-            res1 = int(ssites.split("-")[0][1:])
-            res2 = int(ssites.split("-")[1][1:])
-
-            distance = ihm.restraint.UpperBoundDistanceRestraint(xlr_dists[r])
-
-            # We only utilized crosslinks with endpoints in the 199-residue disordered region (2575-2774)
-            if (res1 > 2574 and res1 <2775) or (res2 > 2574 and res2 <2775):
-                # First, create the poly_residue_feature and pseudo_site for each residue
-                # add them to the feature
-
+        for ex_xl_group in r.experimental_cross_links:
+            ex_xl, = ex_xl_group
+            # We only utilized crosslinks with endpoints in the
+            # 199-residue disordered region (2575-2774)
+            res1 = ex_xl.residue1.seq_id
+            res2 = ex_xl.residue2.seq_id
+            if (res1 > 2574 and res1 < 2775) or (res2 > 2574 and res2 < 2775):
                 # Make a function to get this pseudosite
                 ps1, ps2, form = psf.get_pseudo_site_endpoints(res1, res2)
 
-                # Second, create the derived distance restraints using these features
-                #expxl = ihm.restraint.ExperimentalCrossLink(entity.residue(res1), entity.residue(res2))
-                #xls.append(expxl)
-                ddrxl = ihm.restraint.DerivedDistanceRestraint(dataset=xlrs[r].dataset, 
-                                                            feature1 = ps1, 
-                                                            feature2 = ps2, 
-                                                            distance = distance)
-                system.restraints.append(ddrxl)
+                # Add cross-link between residues
+                rcl = ihm.restraint.ResidueCrossLink(
+                        ex_xl, asym1=asym, asym2=asym, distance=distance,
+                        pseudo1=ps1, pseudo2=ps2)
+                r.cross_links.append(rcl)
 
 # Now we add information about how the modeling was done by defining one
 # or more protocols. Here we enumerated all possible threading solutions
-# and chose the top 10000 scoring models
+# and chose the top 5000 scoring models
 all_datasets = ihm.dataset.DatasetGroup((dsg_dataset,
                                          dss_dataset, bsp_dataset))
 
@@ -294,21 +290,25 @@ for cluster in range(2):
                   file_name=pdb_file, asym_units=[asym],
                   name="Example model for cluster %d" % cluster)
         m.get_residues()
+        add_model_cross_links(m)
         models.append(m)
 
     #---------------
-    # Write .dcd file of all of the best scoring models
+    # Write .dcd file of all of the best scoring models if script called
+    # with --dcd option
     dcd = 'cluster%d.dcd' % cluster
-    with open(dcd, "wb") as fh:
-        d = ihm.model.DCDWriter(fh)
+    if '--dcd' in sys.argv:
+        with open(dcd, "wb") as fh:
+            d = ihm.model.DCDWriter(fh)
 
-        for i, pdb_file in enumerate(pdbs):
-            if i % 20 == 0:
-                print("Added %d of %d models to DCD" % (i, len(pdbs)))
-            m = Model(assembly=assembly, protocol=protocol, representation=rep,
-                file_name=pdb_file, asym_units=[asym])
-            m.get_residues()
-            d.add_model(m)
+            for i, pdb_file in enumerate(pdbs):
+                if i % 20 == 0:
+                    print("Added %d of %d models to DCD" % (i, len(pdbs)))
+                m = Model(assembly=assembly, protocol=protocol,
+                          representation=rep, file_name=pdb_file,
+                          asym_units=[asym])
+                m.get_residues()
+                d.add_model(m)
     l_dcd = ihm.location.OutputFileLocation('cluster%d.dcd' % cluster)
 
     mg = ihm.model.ModelGroup(models, name="Cluster %d" % cluster)

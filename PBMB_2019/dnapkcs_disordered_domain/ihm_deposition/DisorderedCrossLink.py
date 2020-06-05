@@ -39,7 +39,7 @@ def get_closest_endpoints(res, atoms):
     res_dict = {}
 
     for a in atoms:
-        res_dict[a.seq_id] = a
+        res_dict[a.seq_id_range[0]] = a
 
     if res in res_dict.keys():
         a = res_dict[res]
@@ -192,15 +192,16 @@ def calculate_pseudosites(n1, c1, n2, c2):
 
 
 class PseudoSiteFinder(object):
-    def __init__(self, atoms):
-        self.atoms = atoms
+    def __init__(self, model):
+        self.model = model
+        self.spheres = model._spheres
         # dict with keys=residues, values=PseudoSiteFeature
         self._seen_sites = {}
 
     def get_pseudo_site_endpoints(self, res1, res2):
         #print "*****************************"
-        nte1, cte1 = get_closest_endpoints(res1, self.atoms)
-        nte2, cte2 = get_closest_endpoints(res2, self.atoms)
+        nte1, cte1 = get_closest_endpoints(res1, self.spheres)
+        nte2, cte2 = get_closest_endpoints(res2, self.spheres)
 
         # If residue number is zero, this is a structured residue
         # The pseudo-sites are the coordinates of this residue
@@ -212,10 +213,10 @@ class PseudoSiteFinder(object):
         if nte2[1] == 0:
             form+=2
 
-        return (self.get_pseudo_site_feature(ps1, res1),
-                self.get_pseudo_site_feature(ps2, res2), form)
+        return (self.get_pseudo_site(ps1, res1),
+                self.get_pseudo_site(ps2, res2), form)
 
-    def get_pseudo_site_feature(self, coord, res):
+    def get_pseudo_site(self, coord, res):
         if res not in self._seen_sites:
             # Don't duplicate features if we see the same residue multiple times
             ps = ihm.restraint.PseudoSite(
@@ -224,6 +225,6 @@ class PseudoSiteFinder(object):
                         + str(res) + ' from entity 1. It is not part of the '
                         'model representation but is part of the '
                         'experimental restraints')
-            psf = ihm.restraint.PseudoSiteFeature(ps)
+            psf = ihm.restraint.CrossLinkPseudoSite(ps, model=self.model)
             self._seen_sites[res] = psf
         return self._seen_sites[res]
