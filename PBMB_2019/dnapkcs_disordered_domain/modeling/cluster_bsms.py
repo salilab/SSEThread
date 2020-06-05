@@ -11,7 +11,7 @@ Script is hard-coded to generate only up to three clusters.  Can be modified to 
 
 '''
 
-input_file = "bsms_10000.dat"
+input_file = "bsms_5000.dat"
 plot_cluster_matrix=False
 n_clusters = 2
 cluster_png_file='pkcs_clustermatrix.png'
@@ -37,7 +37,7 @@ def calculate_threading_matrix(seq_length, models, se_lengths):
 
 data = numpy.genfromtxt(input_file, delimiter=" ")
 
-w = data[0:10000,0:3]
+w = data[0:5000,0:3]
 km = KMeans(n_clusters).fit(w)
 
 clust0 = numpy.where(km.labels_==0)[0]
