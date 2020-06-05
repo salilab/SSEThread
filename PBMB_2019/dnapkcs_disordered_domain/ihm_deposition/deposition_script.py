@@ -11,6 +11,7 @@ import ihm.dataset
 import ihm.representation
 import ihm.restraint
 import ihm.protocol
+import ihm.analysis
 import ihm.model
 import ihm.dumper
 import ihm.startmodel
@@ -29,19 +30,7 @@ title = ("Integrative threading of the DNA-PKcs sequence based on data from "
   "chemical cross-linking and hydrogen deuterium exchange")
 system = ihm.System(title=title)
 
-
-# Will finish citation when manuscript is published
-'''
-system.citations.append(ihm.Citation(
-          pmid='25139911', title="SSEThread: Integrative threading of the DNA-PKcs sequence based on data "
-          "from chemical cross-linking and hydrogen deuterium exchange",
-          journal="Progress in Biophysics and Molecular Biology", 
-          year=2019,
-          authors=['Saltzberg DJ', 'Hepburn M', 'Pilla KB',
-                   'Schriemer D', 'Lees-Miller SP', 'Blundell T', 'Sali A']))
-'''
-
-
+system.citations.append(ihm.Citation.from_pubmed_id(31570166))
 
 # PSIPRED was used to provide a prediction of the secondary structure for 
 # each residue in sequence
@@ -61,7 +50,7 @@ system.software.append(ihm.Software(
           location='https://integrativemodeling.org'))
 
 # Next, we describe the input data we used, using dataset classes.
-pdb_l = ihm.location.DatabaseLocation("PDB", "5LUQ", 1.1)
+pdb_l = ihm.location.PDBLocation("5LUQ", version="1.1")
 pdb_dataset = ihm.dataset.PDBDataset(pdb_l)
 
 # Next, define the entities for each unique sequence in the system
@@ -107,33 +96,31 @@ class StartingModel(ihm.startmodel.StartingModel):
     return self._atoms
 
 start_model = StartingModel(asym, pdb_dataset, 'A')
-atoms = start_model.add_atoms("5LUQ_A_CA.pdb")
+atoms = start_model.add_atoms("../data/5luq_A_CA.pdb")
 
 
 rep = ihm.representation.Representation(
         [ihm.representation.ResidueSegment(asym, rigid=True, primitive="sphere", starting_model=start_model)])
 
 # Set up crosslinking restraints. First, we define new cross-linking reagents
-dsg = ihm.ChemDescriptor('DSG', chemical_name='disuccinimidyl glutarate',
-              smiles='C1CC(=O)N(C1=O)OC(=O)CCCC(=O)ON2C(=O)CCC2=O',
-              inchi='1S/C13H14N2O8/c16-8-4-5-9(17)14(8)22-12(20)2-1-3-13(21)23-15-10(18)6-7-11(15)19/h1-7H2',
-              inchi_key='LNQHREYHFRFJAU-UHFFFAOYSA-N')
-
 bsp = ihm.ChemDescriptor('BSP', chemical_name='Bis(succinimidyl) penta(ethylene glycol)',
               smiles='C1C(N(C(C1)=O)OC(CCOCCOCCOCCOCCOCCC(=O)ON2C(CCC2=O)=O)=O)=O',
               inchi='InChI=1S/C22H32N2O13/c25-17-1-2-18(26)23(17)36-21(29)5-7-31-9-11-33-13-15-35-16-14-34-12-10-32-8-6-22(30)37-24-19(27)3-4-20(24)28/h1-16H2',
               inchi_key='FTYUGLBWKRXQBD-UHFFFAOYSA-N')
 
 # Second, we add the cross-linking files from MSStudio output
-l_bsp = ihm.location.InputFileLocation("./BSP-350X-SEC.csv", details="BSP Crosslink File")
-l_dss = ihm.location.InputFileLocation("./DSS-350X-SEC.csv", details="DSS Crosslink File")
-l_dsg = ihm.location.InputFileLocation("./DSG-Crosslinks-2.csv", details="DSG Crosslink File")
+l_bsp = ihm.location.InputFileLocation(
+        "../data/BSP-350X-SEC.csv", details="BSP Crosslink File")
+l_dss = ihm.location.InputFileLocation(
+        "../data/DSS-350X-SEC.csv", details="DSS Crosslink File")
+l_dsg = ihm.location.InputFileLocation(
+        "../data/DSG-Crosslinks-2.csv", details="DSG Crosslink File")
 
 bsp_dataset = ihm.dataset.CXMSDataset(l_bsp)
 dss_dataset = ihm.dataset.CXMSDataset(l_dss)
 dsg_dataset = ihm.dataset.CXMSDataset(l_dsg)
 
-dsg_restraint = ihm.restraint.CrossLinkRestraint(dsg_dataset, dsg)
+dsg_restraint = ihm.restraint.CrossLinkRestraint(dsg_dataset, ihm.cross_linkers.dsg)
 dss_restraint = ihm.restraint.CrossLinkRestraint(dss_dataset, ihm.cross_linkers.dss)
 bsp_restraint = ihm.restraint.CrossLinkRestraint(bsp_dataset, bsp)
 system.restraints.extend((dsg_restraint, dss_restraint, bsp_restraint))
@@ -152,7 +139,7 @@ xlr_dists = [42, 32, 27]
 
 
 # Add the individual crosslinks to each restraint
-f_num=0
+psf = PseudoSiteFinder(atoms)
 for r in range(len(xlrs)):
     for line in open(xlrs[r].dataset.location.path, "r"):
         if "Decision" in line:
@@ -168,25 +155,9 @@ for r in range(len(xlrs)):
             if (res1 > 2574 and res1 <2775) or (res2 > 2574 and res2 <2775):
                 # First, create the poly_residue_feature and pseudo_site for each residue
                 # add them to the feature
-                id1 = f_num
-                id2 = f_num+1
-
-                prf1 = ihm.restraint.ResidueFeature(ranges=[asym(res1,res1)])
-                prf2 = ihm.restraint.ResidueFeature(ranges=[asym(res2,res2)])
-                prf1_id = id1
-                prf2_id = id2
 
                 # Make a function to get this pseudosite
-                ps1c, ps2c = get_pseudo_site_endpoints(res1, res2, atoms)
-                ps1 = ihm.restraint.PseudoSiteFeature(x=ps1c[0], y=ps1c[1], z=ps1c[2], radius=0.0)
-                ps2 = ihm.restraint.PseudoSiteFeature(x=ps2c[0], y=ps2c[1], z=ps2c[2], radius=0.0)
-                ps1.set_details('This pseudo site corresponds to residue '+str(res1)+' from entity 1. It is not part of the model representation but is part of the experimental restraints')
-                ps2.set_details('This pseudo site corresponds to residue '+str(res2)+' from entity 1. It is not part of the model representation but is part of the experimental restraints')
-                ps1.set_entity_type("polymer")
-                ps2.set_entity_type("polymer")
-                ps1._id = id1
-                ps2._id = id2
-                f_num+=2
+                ps1, ps2, form = psf.get_pseudo_site_endpoints(res1, res2)
 
                 '''
                 f1 = ihm.restraint.Feature()
@@ -201,10 +172,6 @@ for r in range(len(xlrs)):
                 f2.details = 'This pseudo site corresponds to residue '+str(res2)+' from entity 1. It is not part of the model representation but is part of the experimental restraints'
                 '''
 
-                system.orphan_features.append(prf1)
-                system.orphan_features.append(prf2)
-                system.orphan_features.append(ps1)
-                system.orphan_features.append(ps2)
                 # Second, create the derived distance restraints using these features
                 #expxl = ihm.restraint.ExperimentalCrossLink(entity.residue(res1), entity.residue(res2))
                 #xls.append(expxl)
@@ -233,7 +200,12 @@ protocol.steps.append(ihm.protocol.Step(
                         method='Enumeration',
                         name='Production sampling',
                         num_models_begin=0,
-                        num_models_end=1000, multi_scale=False))
+                        num_models_end=2860000, multi_scale=False))
+analysis = ihm.analysis.Analysis()
+analysis.steps.append(ihm.analysis.FilterStep(
+    feature='RMSD', num_models_begin=2860000, num_models_end=10000,
+    assembly=assembly))
+protocol.analyses.append(analysis)
 
 # Rather than storing another copy of the coordinates in the IHM library
 # (which could use a lot of memory), we need to provide a mechanism to
@@ -315,22 +287,25 @@ for pdb_file in glob.glob("../modeling/bsms_pdbs/bsms_*100.pdb")[0:1]:
 
 #---------------
 # Write .dcd file of all of the best scoring models
-'''
 dcd = 'best_scoring_models.dcd'
-fh = open(dcd, "wb")
-d = ihm.model.DCDWriter(fh)
+dcd_models = ["../modeling/bsms_pdbs/bsms_%d.pdb" % num for num in range(10000)]
+with open(dcd, "wb") as fh:
+    d = ihm.model.DCDWriter(fh)
 
-for pdb_file in glob.glob("../modeling/bsms_pdbs/bsms_*100.pdb"):
-    m = Model(assembly = assembly, protocol=protocol, representation=rep,
-        file_name=pdb_file, asym_units=[asym])
-    d.add_model(m)
-'''
+    for i, pdb_file in enumerate(dcd_models):
+        if i % 20 == 0:
+            print("Added %d of %d models to DCD" % (i, len(dcd_models)))
+        m = Model(assembly=assembly, protocol=protocol, representation=rep,
+            file_name=pdb_file, asym_units=[asym])
+        m.get_residues()
+        d.add_model(m)
 l_dcd = ihm.location.OutputFileLocation('best_scoring_models.dcd')
 
 mg = ihm.model.ModelGroup(models)
-me = ihm.model.Ensemble(mg, len(models),
-    post_process="filtering",
-    file=l_dcd)
+me = ihm.model.Ensemble(mg, len(dcd_models),
+    post_process=protocol.analyses[-1],
+    file=l_dcd, name="Best scoring models")
+system.ensembles.append(me)
 
 # Groups are then placed into states, which can in turn be grouped. In this
 # case we have only a single state:
@@ -338,6 +313,14 @@ state = ihm.model.State([mg],
                     type='Threading Ensemble',
                     name='Threading Ensemble Solution')
 system.state_groups.append(ihm.model.StateGroup([state]))
+
+# Rewrite local paths to point to Zenodo
+r = ihm.location.Repository(
+    doi="10.5281/zenodo.2580423",
+    url="https://zenodo.org/record/2580424/files/salilab/SSEThread-v0.1.zip",
+    top_directory="salilab-SSEThread-bf6b912",
+    root="../../..")
+system.update_locations_in_repositories([r])
 
 # Once the system is complete, we can write it out to an mmCIF file:
 with open('output.cif', 'w') as fh:
