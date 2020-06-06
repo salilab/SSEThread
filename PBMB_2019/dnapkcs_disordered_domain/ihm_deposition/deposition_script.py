@@ -289,11 +289,11 @@ for cluster in range(2):
         pdbs = ["../modeling/bsms_pdbs/bsms_%d.pdb" % int(x)
                 for x in fh.readlines()]
     models = []
-    for pdb_file in pdbs[0:1]:
+    for n, pdb_file in enumerate(pdbs[0:5]):
         #print(pdb_file)
         m = Model(assembly = assembly, protocol=protocol, representation=rep,
                   file_name=pdb_file, asym_units=[asym],
-                  name="Example model for cluster %d" % cluster)
+                  name="Example model %d for cluster %d" % (n, cluster))
         m.get_residues()
         add_model_cross_links(m)
         models.append(m)
@@ -314,13 +314,20 @@ for cluster in range(2):
                           asym_units=[asym])
                 m.get_residues()
                 d.add_model(m)
-    l_dcd = ihm.location.OutputFileLocation('cluster%d.dcd' % cluster)
+    r = ihm.location.Repository(
+            doi="10.5281/zenodo.3880653",
+            url="https://zenodo.org/record/3880653/"
+                "files/cluster%d.dcd" % cluster)
+    l_dcd = ihm.location.OutputFileLocation(path=None, repo=r,
+                details="All models in cluster %d" % cluster)
 
     mg = ihm.model.ModelGroup(models, name="Cluster %d" % cluster)
     mgs.append(mg)
+    # file=None rather than l_dcd since DCD doesn't really work for this system
+    # (same coordinates but different sequence for each model)
     me = ihm.model.Ensemble(mg, len(pdbs),
         post_process=protocol.analyses[-1],
-        file=l_dcd, name="Cluster %d" % cluster)
+        file=None, name="Cluster %d" % cluster)
     system.ensembles.append(me)
 
 # Groups are then placed into states, which can in turn be grouped. In this
@@ -332,9 +339,9 @@ system.state_groups.append(ihm.model.StateGroup([state]))
 
 # Rewrite local paths to point to Zenodo
 r = ihm.location.Repository(
-    doi="10.5281/zenodo.2580423",
-    url="https://zenodo.org/record/2580424/files/salilab/SSEThread-v0.1.zip",
-    top_directory="salilab-SSEThread-bf6b912",
+    doi="10.5281/zenodo.3880653",
+    url="https://zenodo.org/record/3880653/files/SSEThread-v0.2.zip",
+    top_directory="SSEThread-0.2",
     root="../../..")
 system.update_locations_in_repositories([r])
 
