@@ -16,6 +16,7 @@ import ihm.model
 import ihm.dumper
 import ihm.startmodel
 import ihm.cross_linkers
+import ihm.reference
 import Bio.PDB
 import Bio.SeqIO
 from Bio.SeqIO.FastaIO import SimpleFastaParser
@@ -67,7 +68,8 @@ pdb_dataset = ihm.dataset.PDBDataset(pdb_l)
 for record in Bio.SeqIO.parse("P78527.fasta", "fasta"):
     sequence = record.seq
 
-entity = ihm.Entity(sequence, description='DNA-PKcs')
+ref = ihm.reference.UniProtSequence.from_accession('P78527')
+entity = ihm.Entity(sequence, description='DNA-PKcs', references=[ref])
 system.entities.append(entity)
 
 # Next, we define asymmetric units for everything we modeled.
