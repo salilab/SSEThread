@@ -60,6 +60,12 @@ sklearn_software = ihm.Software(
           location='https://scikit-learn.org/stable/')
 system.software.append(sklearn_software)
 
+# Link to this script
+deposition_script = ihm.location.WorkflowFileLocation(
+        "deposition_script.py",
+        details="Deposition script")
+system.locations.append(deposition_script)
+
 # Next, we describe the input data we used, using dataset classes.
 pdb_l = ihm.location.PDBLocation("5LUQ", version="1.1")
 pdb_dataset = ihm.dataset.PDBDataset(pdb_l)
@@ -300,36 +306,18 @@ for cluster in range(2):
         add_model_cross_links(m)
         models.append(m)
 
-    #---------------
-    # Write .dcd file of all of the best scoring models if script called
-    # with --dcd option
-    dcd = 'cluster%d.dcd' % cluster
-    if '--dcd' in sys.argv:
-        with open(dcd, "wb") as fh:
-            d = ihm.model.DCDWriter(fh)
-
-            for i, pdb_file in enumerate(pdbs):
-                if i % 20 == 0:
-                    print("Added %d of %d models to DCD" % (i, len(pdbs)))
-                m = Model(assembly=assembly, protocol=protocol,
-                          representation=rep, file_name=pdb_file,
-                          asym_units=[asym])
-                m.get_residues()
-                d.add_model(m)
     r = ihm.location.Repository(
             doi="10.5281/zenodo.3880653",
             url="https://zenodo.org/record/3880653/"
-                "files/cluster%d.dcd" % cluster)
-    l_dcd = ihm.location.OutputFileLocation(path=None, repo=r,
-                details="All models in cluster %d" % cluster)
+                "files/cluster%d_pdbs.tar.gz" % cluster)
+    l_ensemble = ihm.location.OutputFileLocation(path=None, repo=r,
+                        details="All models in cluster %d" % cluster)
 
     mg = ihm.model.ModelGroup(models, name="Cluster %d" % cluster)
     mgs.append(mg)
-    # file=None rather than l_dcd since DCD doesn't really work for this system
-    # (same coordinates but different sequence for each model)
     me = ihm.model.Ensemble(mg, len(pdbs),
         post_process=protocol.analyses[-1],
-        file=None, name="Cluster %d" % cluster)
+        file=l_ensemble, name="Cluster %d" % cluster)
     system.ensembles.append(me)
 
 # Groups are then placed into states, which can in turn be grouped. In this
