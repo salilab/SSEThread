@@ -1,0 +1,8 @@
+title: DNA-PKcs
+tags: [chemical crosslinks, threading]
+prereqs: [python/biopython]
+pmid: 31570166
+accessions: [PDBDEV_00000034]
+test:
+    runtime: 24h
+build: release
