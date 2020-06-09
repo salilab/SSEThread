@@ -195,7 +195,7 @@ GDRHLNNFMVAMETGGVIGIDFGHAFGSATQFLPVPELMPFRLTRQFINLMLPMKETGLMYSIMVHALRA
 FRSDPGLLTNTMDVFVKEPSFDWKNFEQKMLKKGGSWIQEINVAEKNWYPRQKICYAKRKLAGANPAVIT
 CDELLLGHEKAPAFRDYVAVARGSKDHNIRAQEPESGLSEETQVKCLMDQATDPNILGRTWEGWEPWM
 ;
-.
+'DNA-dependent protein kinase catalytic subunit OS=Homo sapiens OX=9606 GN=PRKDC PE=1 SV=3'
 #
 #
 loop_
@@ -8659,12 +8659,12 @@ _ihm_external_reference_info.reference
 _ihm_external_reference_info.refers_to
 _ihm_external_reference_info.associated_url
 _ihm_external_reference_info.details
-1 Zenodo DOI 10.5281/zenodo.3880653 Archive
-https://zenodo.org/record/3880653/files/SSEThread-v0.2.zip .
-2 Zenodo DOI 10.5281/zenodo.3880653 File
-https://zenodo.org/record/3880653/files/cluster0_pdbs.tar.gz .
-3 Zenodo DOI 10.5281/zenodo.3880653 File
-https://zenodo.org/record/3880653/files/cluster1_pdbs.tar.gz .
+1 Zenodo DOI 10.5281/zenodo.3886944 File
+https://zenodo.org/record/3886944/files/SSEThread-0.3.tar.gz .
+2 Zenodo DOI 10.5281/zenodo.3886944 File
+https://zenodo.org/record/3886944/files/cluster0_pdbs.tar.gz .
+3 Zenodo DOI 10.5281/zenodo.3886944 File
+https://zenodo.org/record/3886944/files/cluster1_pdbs.tar.gz .
 #
 #
 loop_
@@ -8675,20 +8675,20 @@ _ihm_external_files.content_type
 _ihm_external_files.file_size_bytes
 _ihm_external_files.details
 1 1
-SSEThread-0.2/PBMB_2019/dnapkcs_disordered_domain/ihm_deposition/deposition_script.py
-'Modeling workflow or script' 14572 'Deposition script'
-2 1 SSEThread-0.2/PBMB_2019/dnapkcs_disordered_domain/data/DSG-Crosslinks-2.csv
+SSEThread-0.3/PBMB_2019/dnapkcs_disordered_domain/ihm_deposition/deposition_script.py
+'Modeling workflow or script' 14574 'Deposition script'
+2 1 SSEThread-0.3/PBMB_2019/dnapkcs_disordered_domain/data/DSG-Crosslinks-2.csv
 'Input data or restraints' 27748 'DSG Crosslink File'
-3 1 SSEThread-0.2/PBMB_2019/dnapkcs_disordered_domain/data/DSS-350X-SEC.csv
+3 1 SSEThread-0.3/PBMB_2019/dnapkcs_disordered_domain/data/DSS-350X-SEC.csv
 'Input data or restraints' 19861 'DSS Crosslink File'
-4 1 SSEThread-0.2/PBMB_2019/dnapkcs_disordered_domain/data/BSP-350X-SEC.csv
+4 1 SSEThread-0.3/PBMB_2019/dnapkcs_disordered_domain/data/BSP-350X-SEC.csv
 'Input data or restraints' 10690 'BSP Crosslink File'
 5 2 . 'Modeling or post-processing output' . 'All models in cluster 0'
 6 3 . 'Modeling or post-processing output' . 'All models in cluster 1'
 7 1
-SSEThread-0.2/PBMB_2019/dnapkcs_disordered_domain/modeling/modeling_enumerate_multi.py
+SSEThread-0.3/PBMB_2019/dnapkcs_disordered_domain/modeling/modeling_enumerate_multi.py
 'Modeling workflow or script' 13560 'Main modeling script'
-8 1 SSEThread-0.2/PBMB_2019/dnapkcs_disordered_domain/modeling/cluster_bsms.py
+8 1 SSEThread-0.3/PBMB_2019/dnapkcs_disordered_domain/modeling/cluster_bsms.py
 'Modeling workflow or script' 3147
 'Clustering script using KMeans from scikit-learn'
 #

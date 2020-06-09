@@ -307,8 +307,8 @@ for cluster in range(2):
         models.append(m)
 
     r = ihm.location.Repository(
-            doi="10.5281/zenodo.3880653",
-            url="https://zenodo.org/record/3880653/"
+            doi="10.5281/zenodo.3886944",
+            url="https://zenodo.org/record/3886944/"
                 "files/cluster%d_pdbs.tar.gz" % cluster)
     l_ensemble = ihm.location.OutputFileLocation(path=None, repo=r,
                         details="All models in cluster %d" % cluster)
@@ -329,9 +329,9 @@ system.state_groups.append(ihm.model.StateGroup([state]))
 
 # Rewrite local paths to point to Zenodo
 r = ihm.location.Repository(
-    doi="10.5281/zenodo.3880653",
-    url="https://zenodo.org/record/3880653/files/SSEThread-v0.2.zip",
-    top_directory="SSEThread-0.2",
+    doi="10.5281/zenodo.3886944",
+    url="https://zenodo.org/record/3886944/files/SSEThread-0.3.tar.gz",
+    top_directory="SSEThread-0.3",
     root="../../..")
 system.update_locations_in_repositories([r])
 
