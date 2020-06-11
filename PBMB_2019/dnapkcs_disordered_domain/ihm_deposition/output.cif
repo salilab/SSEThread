@@ -8676,7 +8676,7 @@ _ihm_external_files.file_size_bytes
 _ihm_external_files.details
 1 1
 SSEThread-0.3/PBMB_2019/dnapkcs_disordered_domain/ihm_deposition/deposition_script.py
-'Modeling workflow or script' 14574 'Deposition script'
+'Modeling workflow or script' 15103 'Deposition script'
 2 1 SSEThread-0.3/PBMB_2019/dnapkcs_disordered_domain/data/DSG-Crosslinks-2.csv
 'Input data or restraints' 27748 'DSG Crosslink File'
 3 1 SSEThread-0.3/PBMB_2019/dnapkcs_disordered_domain/data/DSS-350X-SEC.csv
@@ -8701,7 +8701,9 @@ _ihm_dataset_list.details
 1 'CX-MS data' NO .
 2 'CX-MS data' NO .
 3 'CX-MS data' NO .
-4 'Experimental model' YES .
+4 'H/D exchange data' YES
+'Kinetic Analysis of DNA Dependent Protein Kinase Catalytic Subunit'
+5 'Experimental model' YES .
 #
 #
 loop_
@@ -8710,6 +8712,7 @@ _ihm_dataset_group.name
 _ihm_dataset_group.application
 _ihm_dataset_group.details
 1 . . .
+2 'All datasets used in validation' validation .
 #
 #
 loop_
@@ -8718,6 +8721,7 @@ _ihm_dataset_group_link.dataset_list_id
 1 1
 1 2
 1 3
+2 4
 #
 #
 loop_
@@ -8736,7 +8740,8 @@ _ihm_dataset_related_db_reference.db_name
 _ihm_dataset_related_db_reference.accession_code
 _ihm_dataset_related_db_reference.version
 _ihm_dataset_related_db_reference.details
-1 4 PDB 5LUQ 1.1 .
+1 4 PRIDE PXD016595 . .
+2 5 PDB 5LUQ 1.1 .
 #
 #
 loop_
@@ -8773,7 +8778,7 @@ _ihm_starting_model_details.starting_model_auth_asym_id
 _ihm_starting_model_details.starting_model_sequence_offset
 _ihm_starting_model_details.dataset_list_id
 _ihm_starting_model_details.description
-1 1 DNA-PKcs A 1 'experimental model' A 0 4 .
+1 1 DNA-PKcs A 1 'experimental model' A 0 5 .
 #
 #
 loop_
@@ -12453,6 +12458,7 @@ _ihm_modeling_post_process.details
 1 1 1 1 filter energy/score 2860000 5000 1 . . .
 'Selection of the top 5000 best-scoring solutions'
 2 1 1 2 cluster RMSD 5000 5000 1 . 3 8 'Clustering using KMeans'
+3 1 1 3 validation other 5000 5000 1 2 . . .
 #
 #
 loop_
@@ -50170,6 +50176,6 @@ _ihm_ensemble_info.ensemble_file_id
 _ihm_ensemble_info.details
 _ihm_ensemble_info.sub_sample_flag
 _ihm_ensemble_info.sub_sampling_type
-1 'Cluster 0' 1 1 . . 2758 5 . 5 . NO .
-2 'Cluster 1' 1 2 . . 2242 5 . 6 . NO .
+1 'Cluster 0' 2 1 . . 2758 5 . 5 . NO .
+2 'Cluster 1' 2 2 . . 2242 5 . 6 . NO .
 #

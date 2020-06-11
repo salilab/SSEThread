@@ -70,6 +70,10 @@ system.locations.append(deposition_script)
 pdb_l = ihm.location.PDBLocation("5LUQ", version="1.1")
 pdb_dataset = ihm.dataset.PDBDataset(pdb_l)
 
+hdx_l = ihm.location.PRIDELocation("PXD016595")
+hdx_dataset = ihm.dataset.HDXDataset(hdx_l,
+   details="Kinetic Analysis of DNA Dependent Protein Kinase Catalytic Subunit")
+
 # Next, define the entities for each unique sequence in the system
 for record in Bio.SeqIO.parse("P78527.fasta", "fasta"):
     sequence = record.seq
@@ -211,13 +215,23 @@ analysis.steps.append(ihm.analysis.FilterStep(
     feature='energy/score', num_models_begin=2860000, num_models_end=5000,
     assembly=assembly,
     details="Selection of the top 5000 best-scoring solutions"))
+
 cluster_script = ihm.location.WorkflowFileLocation(
         "../modeling/cluster_bsms.py",
         details="Clustering script using KMeans from scikit-learn")
-analysis.steps.append(ihm.analysis.ClusterStep(
+clustering = ihm.analysis.ClusterStep(
     feature='RMSD', num_models_begin=5000, num_models_end=5000,
     assembly=assembly, details="Clustering using KMeans",
-    script_file=cluster_script, software=sklearn_software))
+    script_file=cluster_script, software=sklearn_software)
+analysis.steps.append(clustering)
+
+# Finally we validated against HDX data
+validation_dg = ihm.dataset.DatasetGroup([hdx_dataset],
+        name="All datasets used in validation", application="validation")
+analysis.steps.append(ihm.analysis.ValidationStep(
+    assembly=assembly, dataset_group=validation_dg,
+    feature="other", num_models_begin=5000, num_models_end=5000))
+
 protocol.analyses.append(analysis)
 
 # Rather than storing another copy of the coordinates in the IHM library
@@ -316,7 +330,7 @@ for cluster in range(2):
     mg = ihm.model.ModelGroup(models, name="Cluster %d" % cluster)
     mgs.append(mg)
     me = ihm.model.Ensemble(mg, len(pdbs),
-        post_process=protocol.analyses[-1],
+        post_process=clustering,
         file=l_ensemble, name="Cluster %d" % cluster)
     system.ensembles.append(me)
 
