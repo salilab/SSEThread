@@ -219,11 +219,10 @@ analysis.steps.append(ihm.analysis.FilterStep(
 cluster_script = ihm.location.WorkflowFileLocation(
         "../modeling/cluster_bsms.py",
         details="Clustering script using KMeans from scikit-learn")
-clustering = ihm.analysis.ClusterStep(
+analysis.steps.append(ihm.analysis.ClusterStep(
     feature='RMSD', num_models_begin=5000, num_models_end=5000,
     assembly=assembly, details="Clustering using KMeans",
-    script_file=cluster_script, software=sklearn_software)
-analysis.steps.append(clustering)
+    script_file=cluster_script, software=sklearn_software))
 
 # Finally we validated against HDX data
 validation_dg = ihm.dataset.DatasetGroup([hdx_dataset],
@@ -330,7 +329,7 @@ for cluster in range(2):
     mg = ihm.model.ModelGroup(models, name="Cluster %d" % cluster)
     mgs.append(mg)
     me = ihm.model.Ensemble(mg, len(pdbs),
-        post_process=clustering,
+        post_process=protocol.analyses[-1],
         file=l_ensemble, name="Cluster %d" % cluster)
     system.ensembles.append(me)
 

@@ -8676,7 +8676,7 @@ _ihm_external_files.file_size_bytes
 _ihm_external_files.details
 1 1
 SSEThread-0.3/PBMB_2019/dnapkcs_disordered_domain/ihm_deposition/deposition_script.py
-'Modeling workflow or script' 15103 'Deposition script'
+'Modeling workflow or script' 15090 'Deposition script'
 2 1 SSEThread-0.3/PBMB_2019/dnapkcs_disordered_domain/data/DSG-Crosslinks-2.csv
 'Input data or restraints' 27748 'DSG Crosslink File'
 3 1 SSEThread-0.3/PBMB_2019/dnapkcs_disordered_domain/data/DSS-350X-SEC.csv
@@ -50176,6 +50176,6 @@ _ihm_ensemble_info.ensemble_file_id
 _ihm_ensemble_info.details
 _ihm_ensemble_info.sub_sample_flag
 _ihm_ensemble_info.sub_sampling_type
-1 'Cluster 0' 2 1 . . 2758 5 . 5 . NO .
-2 'Cluster 1' 2 2 . . 2242 5 . 6 . NO .
+1 'Cluster 0' 1 1 . . 2758 5 . 5 . NO .
+2 'Cluster 1' 1 2 . . 2242 5 . 6 . NO .
 #
