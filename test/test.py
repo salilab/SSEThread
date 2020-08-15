@@ -9,9 +9,19 @@ import ihm.reader
 
 TOPDIR = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), '..'))
 
+
+def make_bsms_pdbs():
+    os.chdir(os.path.join(TOPDIR, 'PBMB_2019', 'dnapkcs_disordered_domain',
+                          'modeling'))
+    if not os.path.exists('bsms_pdbs'):
+        os.mkdir('bsms_pdbs')
+    subprocess.check_call(['python', 'make_pdbs.py'])
+
+
 class Tests(unittest.TestCase):
     def test_mmcif(self):
         """Test generation of mmCIF output"""
+        make_bsms_pdbs()
         os.chdir(os.path.join(TOPDIR, 'PBMB_2019', 'dnapkcs_disordered_domain',
                               'ihm_deposition'))
         if os.path.exists("output.cif"):
