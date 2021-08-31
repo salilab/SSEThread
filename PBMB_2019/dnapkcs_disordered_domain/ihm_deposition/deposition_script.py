@@ -11,6 +11,10 @@ import ihm.dataset
 import ihm.representation
 import ihm.restraint
 import ihm.protocol
+try:
+    import ihm.citations
+except ImportError:
+    pass
 import ihm.analysis
 import ihm.model
 import ihm.dumper
@@ -35,12 +39,15 @@ system.citations.append(ihm.Citation.from_pubmed_id(31570166))
 
 # PSIPRED was used to provide a prediction of the secondary structure for 
 # each residue in sequence
-system.software.append(ihm.Software(
+s = ihm.Software(
           name='PSIPRED', classification='secondary structure prediction',
           description='Protein secondary structure prediction based on '
                       'position-specific scoring matrices',
           version='4.0',
-          location='http://bioinf.cs.ucl.ac.uk/psipred/'))
+          location='http://bioinf.cs.ucl.ac.uk/psipred/')
+if hasattr(ihm, 'citations'):
+    s.citation = ihm.citations.psipred
+system.software.append(s)
 
 # We used various tools from IMP
 imp_software = ihm.Software(
@@ -49,6 +56,8 @@ imp_software = ihm.Software(
           classification="integrative model building",
           description="integrative model building",
           location='https://integrativemodeling.org')
+if hasattr(ihm, 'citations'):
+    imp_software.citation = ihm.citations.imp
 system.software.append(imp_software)
 
 # We used scikit-learn for clustering
@@ -58,6 +67,15 @@ sklearn_software = ihm.Software(
           classification="model building",
           description="Machine learning in Python",
           location='https://scikit-learn.org/stable/')
+if hasattr(ihm, 'citations'):
+    sklearn_software.citation = ihm.Citation(
+        title='Scikit-learn: Machine Learning in Python',
+        journal='J Mach Learn Res', volume=12, page_range=(2825, 2830),
+        year=2011, pmid=None, doi=None,
+        authors=['Pedregosa F', 'Varoquaux G', 'Gramfort A', 'Michel V',
+                 'Thirion B', 'Grisel O', 'Blondel M', 'Prettenhofer P',
+                 'Weiss R', 'Dubourg V', 'Vanderplas J', 'Passos A',
+                 'Cournapeau D', 'Brucher M', 'Perrot M', 'Duchesnay É'])
 system.software.append(sklearn_software)
 
 # Link to this script
